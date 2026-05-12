@@ -21,6 +21,7 @@ import {
 	useCreateChat,
 	useDataChat,
 	useDeleteChat,
+	useUpdateMessage,
 } from "@/hooks/useChats";
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useUser } from "@/hooks/useUser";
@@ -37,6 +38,7 @@ import type {
 	ApiProvider,
 } from "@/lib/fetch-models";
 import type { ComboboxModel, Organization, Project } from "@/lib/types";
+import type { UIMessage } from "ai";
 
 /**
  * Minimal interface for tool parts from AI SDK v6 (tool-{toolName} pattern)
@@ -76,6 +78,130 @@ function getFirstUserMessageText(
 		}
 	}
 	return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function readString(value: unknown): string | undefined {
+	return typeof value === "string" ? value : undefined;
+}
+
+function getImagePartsForMessage(message: UIMessage): unknown[] {
+	return (message.parts as unknown[]).filter((part) => {
+		if (!isRecord(part)) {
+			return false;
+		}
+		if (part.type === "image_url") {
+			return true;
+		}
+		if (part.type !== "file") {
+			return false;
+		}
+		const mediaType = readString(part.mediaType);
+		return !!mediaType?.startsWith("image/");
+	});
+}
+
+function getAudioPartsForMessage(message: UIMessage): unknown[] {
+	return (message.parts as unknown[]).filter((part) => {
+		if (!isRecord(part)) {
+			return false;
+		}
+		if (part.type !== "file") {
+			return false;
+		}
+		const mediaType = readString(part.mediaType);
+		return !!mediaType?.startsWith("audio/");
+	});
+}
+
+function getAudiosForStorage(
+	message: UIMessage,
+): Array<{ type: "audio"; url: string; mediaType: string; name?: string }> {
+	const audios: Array<{
+		type: "audio";
+		url: string;
+		mediaType: string;
+		name?: string;
+	}> = [];
+
+	for (const part of message.parts as unknown[]) {
+		if (!isRecord(part) || part.type !== "file") {
+			continue;
+		}
+		const mediaType = readString(part.mediaType);
+		const url = readString(part.url);
+		if (!mediaType?.startsWith("audio/") || !url) {
+			continue;
+		}
+		const name = readString(part.name);
+		audios.push({ type: "audio", url, mediaType, ...(name ? { name } : {}) });
+	}
+
+	return audios;
+}
+
+function getImagesForStorage(
+	message: UIMessage,
+): Array<{ type: "image_url"; image_url: { url: string } }> {
+	const images: Array<{ type: "image_url"; image_url: { url: string } }> = [];
+
+	for (const part of message.parts as unknown[]) {
+		if (!isRecord(part)) {
+			continue;
+		}
+
+		if (part.type === "image_url") {
+			const imageUrl = isRecord(part.image_url)
+				? readString(part.image_url.url)
+				: undefined;
+			if (imageUrl) {
+				images.push({
+					type: "image_url",
+					image_url: { url: imageUrl },
+				});
+			}
+			continue;
+		}
+
+		if (part.type !== "file") {
+			continue;
+		}
+
+		const mediaType = readString(part.mediaType);
+		const url = readString(part.url);
+		if (!mediaType?.startsWith("image/") || !url) {
+			continue;
+		}
+
+		const { dataUrl } = parseImageFile({ url, mediaType });
+		images.push({
+			type: "image_url",
+			image_url: { url: dataUrl },
+		});
+	}
+
+	return images;
+}
+
+function buildEditedUserMessage(
+	message: UIMessage,
+	content: string,
+): UIMessage {
+	const parts: unknown[] = [];
+	if (content.trim()) {
+		parts.push({ type: "text", text: content });
+	}
+	parts.push(...getImagePartsForMessage(message));
+	parts.push(...getAudioPartsForMessage(message));
+
+	return {
+		...message,
+		role: "user",
+		parts: parts as UIMessage["parts"],
+	};
 }
 
 interface ChatPageClientProps {
@@ -623,6 +749,7 @@ export default function ChatPageClient({
 	// Chat API hooks
 	const createChat = useCreateChat();
 	const addMessage = useAddMessage();
+	const updateMessage = useUpdateMessage();
 	const deleteChat = useDeleteChat();
 	const { data: currentChatData, isLoading: isChatLoading } = useDataChat(
 		currentChatId ?? "",
@@ -861,9 +988,10 @@ export default function ChatPageClient({
 	) => {
 		if (selectedOrganization && Number(selectedOrganization.credits) <= 0) {
 			setShowTopUp(true);
-			return;
+			return undefined;
 		}
 
+		let savedUserMessage: { id: string } | undefined;
 		setError(null);
 		setFinishReason(null);
 		setIsLoading(true);
@@ -892,7 +1020,7 @@ export default function ChatPageClient({
 					}
 				}
 			}
-			return;
+			return undefined;
 		}
 
 		const isNewChat = !chatIdRef.current;
@@ -903,7 +1031,7 @@ export default function ChatPageClient({
 		try {
 			const chatId = await ensureCurrentChat(content);
 
-			await addMessage.mutateAsync({
+			const savedMessage = await addMessage.mutateAsync({
 				params: { path: { id: chatId } },
 				body: {
 					role: "user",
@@ -912,6 +1040,7 @@ export default function ChatPageClient({
 					...(audio?.length ? { audios: JSON.stringify(audio) } : {}),
 				},
 			});
+			savedUserMessage = savedMessage.message;
 		} catch (error: any) {
 			// If chat not found, it means the chat was deleted or is stale
 			if (error?.status === 404 && error?.message?.includes("Chat not found")) {
@@ -922,7 +1051,7 @@ export default function ChatPageClient({
 				// Try again with a new chat
 				try {
 					const newChatId = await ensureCurrentChat(content);
-					await addMessage.mutateAsync({
+					const savedMessage = await addMessage.mutateAsync({
 						params: { path: { id: newChatId } },
 						body: {
 							role: "user",
@@ -932,13 +1061,13 @@ export default function ChatPageClient({
 						},
 					});
 					setIsLoading(false);
-					return; // Exit early, don't show error
+					savedUserMessage = savedMessage.message;
 				} catch (retryError) {
 					const retryErrorMessage = getErrorMessage(retryError);
 					setError(retryErrorMessage);
 					toast.error(retryErrorMessage);
 					setIsLoading(false);
-					return;
+					return undefined;
 				}
 			}
 
@@ -950,7 +1079,7 @@ export default function ChatPageClient({
 					error?.message?.includes("FREE_LIMIT_REACHED"))
 			) {
 				toast.error(error.message);
-				return;
+				return undefined;
 			}
 
 			const errorMessage = getErrorMessage(error);
@@ -993,6 +1122,63 @@ export default function ChatPageClient({
 					});
 				}
 			}
+		}
+		return savedUserMessage;
+	};
+
+	const handleEditUserMessage = async (message: UIMessage, content: string) => {
+		const chatId = chatIdRef.current;
+		if (!chatId) {
+			toast.error("No chat selected.");
+			return;
+		}
+
+		if (selectedOrganization && Number(selectedOrganization.credits) <= 0) {
+			setShowTopUp(true);
+			return;
+		}
+
+		const editedMessage = buildEditedUserMessage(message, content);
+		if (editedMessage.parts.length === 0) {
+			return;
+		}
+
+		const images = getImagesForStorage(message);
+		const audios = getAudiosForStorage(message);
+		setError(null);
+		setFinishReason(null);
+		errorOccurredRef.current = false;
+		isSendingRef.current = true;
+		loadedChatIdRef.current = chatId;
+
+		try {
+			await updateMessage.mutateAsync({
+				params: { path: { id: chatId, messageId: message.id } },
+				body: {
+					...(content.trim() ? { content } : {}),
+					...(images.length ? { images: JSON.stringify(images) } : {}),
+					...(audios.length ? { audios: JSON.stringify(audios) } : {}),
+				},
+			});
+
+			const messageIndex = messages.findIndex((m) => m.id === message.id);
+			const previousMessages =
+				messageIndex === -1 ? messages : messages.slice(0, messageIndex);
+			setMessages(previousMessages);
+			await new Promise<void>((resolve) => {
+				setTimeout(resolve, 0);
+			});
+
+			await sendMessageWithHeaders(editedMessage, {
+				body: {
+					model: selectedModel,
+				},
+			});
+		} catch (error) {
+			isSendingRef.current = false;
+			const errorMessage = getErrorMessage(error);
+			setError(errorMessage);
+			toast.error(errorMessage);
 		}
 	};
 
@@ -1333,6 +1519,7 @@ export default function ChatPageClient({
 											imageCount={imageCount}
 											setImageCount={setImageCount}
 											onUserMessage={handleUserMessage}
+											onEditUserMessage={handleEditUserMessage}
 											isLoading={isLoading || isChatLoading}
 											error={error}
 											finishReason={finishReason}
@@ -1374,6 +1561,7 @@ export default function ChatPageClient({
 										webSearchEnabled={webSearchEnabled}
 										setWebSearchEnabled={setWebSearchEnabled}
 										onUserMessage={handleUserMessage}
+										onEditUserMessage={handleEditUserMessage}
 										isLoading={isLoading || isChatLoading}
 										error={error}
 										finishReason={finishReason}
