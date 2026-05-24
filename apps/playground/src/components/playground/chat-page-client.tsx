@@ -30,6 +30,7 @@ import {
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useSkills, type Skill } from "@/hooks/useSkills";
 import { useUser } from "@/hooks/useUser";
+import { useFetchClient } from "@/lib/fetch-client";
 import { getModelImageConfig } from "@/lib/image-gen";
 import { parseImageFile } from "@/lib/image-utils";
 import { mapModels } from "@/lib/mapmodels";
@@ -505,7 +506,48 @@ export default function ChatPageClient({
 
 				// Extract tool parts (AI SDK v6 uses tool-{toolName} as the part type)
 				const toolParts = message.parts.filter(isToolPart);
-				const metadata = parsePlaygroundMessageMetadata(message.metadata);
+				let metadata = parsePlaygroundMessageMetadata(message.metadata);
+
+				// Enrich metadata with log data (discount, logId, etc.) before saving.
+				// Race against a 2s timeout so a slow /logs response never blocks persistence.
+				if (metadata?.requestId) {
+					try {
+						const timeout = new Promise<undefined>((r) =>
+							setTimeout(() => r(undefined), 2000),
+						);
+						const fetchLog = (async () => {
+							for (let attempt = 0; attempt < 3; attempt++) {
+								if (attempt > 0) {
+									await new Promise<void>((r) => setTimeout(r, 500));
+								}
+								const logResponse = await fetchClient.GET("/logs", {
+									params: {
+										query: { requestId: metadata.requestId, limit: "1" },
+									},
+								});
+								const found = logResponse.data?.logs?.[0];
+								if (found) {
+									return found;
+								}
+							}
+							return undefined;
+						})();
+						const log = await Promise.race([fetchLog, timeout]);
+						if (log) {
+							metadata = {
+								...metadata,
+								...(log.discount !== null && log.discount !== undefined
+									? { discount: log.discount }
+									: {}),
+								logId: log.id,
+								organizationId: log.organizationId,
+								projectId: log.projectId,
+							};
+						}
+					} catch {
+						// silently ignore — message is saved without enrichment
+					}
+				}
 
 				const bodyToSave = {
 					role: "assistant" as const,
@@ -785,6 +827,7 @@ export default function ChatPageClient({
 	// Chat API hooks
 	const createChat = useCreateChat();
 	const addMessage = useAddMessage();
+	const fetchClient = useFetchClient();
 	const updateMessage = useUpdateMessage();
 	const deleteChat = useDeleteChat();
 	const forkChat = useForkChat();
@@ -915,6 +958,7 @@ export default function ChatPageClient({
 					role: msg.role,
 					content: msg.content ?? "",
 					metadata: parsePlaygroundMessageMetadata(msg.metadata),
+					createdAt: new Date(msg.createdAt),
 					parts,
 				};
 			}),
@@ -1655,6 +1699,8 @@ export default function ChatPageClient({
 													prev.filter((s) => s.id !== id),
 												)
 											}
+											organizationId={selectedProject?.organizationId}
+											projectId={selectedProject?.id}
 										/>
 									</div>
 								</div>
@@ -1708,6 +1754,8 @@ export default function ChatPageClient({
 										onRemoveSkill={(id) =>
 											setActiveSkills((prev) => prev.filter((s) => s.id !== id))
 										}
+										organizationId={selectedProject?.organizationId}
+										projectId={selectedProject?.id}
 									/>
 								</div>
 							)}
