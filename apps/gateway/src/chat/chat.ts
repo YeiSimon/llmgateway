@@ -1622,6 +1622,24 @@ chat.openapi(completions, async (c) => {
 		}
 	}
 
+	// Dev plans are inference-only — image generation is never allowed,
+	// regardless of devPlanAllowAllModels. Embeddings and video generation
+	// are blocked at their respective endpoints. We check the model's
+	// declared output formats (and the legacy imageGenerations provider
+	// flag) so chat-completions models that emit images — e.g. Gemini
+	// *-flash-image with output: ["text", "image"] — are also blocked.
+	const isDevPlan = Boolean(
+		organization?.isPersonal && organization.devPlan !== "none",
+	);
+	const modelEmitsImages =
+		modelInfo.output?.includes("image") === true ||
+		modelInfo.providers.some((p) => p.imageGenerations === true);
+	if (isDevPlan && modelEmitsImages) {
+		throw new HTTPException(403, {
+			message: `Image generation is not available for coding plans. Coding plans only include text-based inference.`,
+		});
+	}
+
 	// Coding plans only allow models/provider mappings with cached input pricing.
 	// The model-level check denies models with no cached mapping at all.
 	// The specific-provider check denies a request like `groq/gpt-oss-120b` where the
