@@ -185,6 +185,16 @@ export function getProviderEndpoint(
 					);
 				}
 				break;
+			case "llm-d":
+				url = skipEnvVars
+					? undefined
+					: getProviderEnvValue("llm-d", "baseUrl", configIndex);
+				if (!url) {
+					throw new Error(
+						"llm-d provider requires LLM_LLM_D_BASE_URL environment variable",
+					);
+				}
+				break;
 			case "inference.net":
 				url = "https://api.inference.net";
 				break;

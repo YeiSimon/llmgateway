@@ -3,6 +3,7 @@ import { anthropicModels } from "./models/anthropic.js";
 import { bytedanceModels } from "./models/bytedance.js";
 import { deepseekModels } from "./models/deepseek.js";
 import { googleModels } from "./models/google.js";
+import { llmdModels } from "./models/llm-d.js";
 import { llmgatewayModels } from "./models/llmgateway.js";
 import { metaModels } from "./models/meta.js";
 import { microsoftModels } from "./models/microsoft.js";
@@ -512,4 +513,5 @@ export const models = [
 	...bytedanceModels,
 	...nousresearchModels,
 	...zaiModels,
+	...llmdModels,
 ] as const satisfies ModelDefinition[];

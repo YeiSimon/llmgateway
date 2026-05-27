@@ -722,6 +722,27 @@ export const providers = [
 		termsUrl: "https://deepinfra.com/terms",
 		privacyPolicyUrl: "https://deepinfra.com/privacy",
 	},
+	{
+		id: "llm-d",
+		name: "llm-d",
+		description:
+			"llm-d is a Kubernetes-native LLM inference scheduler with an OpenAI-compatible API.",
+		env: {
+			required: {
+				baseUrl: "LLM_LLM_D_BASE_URL",
+			},
+			optional: {
+				apiKey: "LLM_LLM_D_API_KEY",
+			},
+		},
+		streaming: true,
+		cancellation: true,
+		color: "#EE0000",
+		website: "https://github.com/llm-d/llm-d",
+		announcement: null,
+		termsUrl: null,
+		privacyPolicyUrl: null,
+	},
 ] as const satisfies ProviderDefinition[];
 
 export type ProviderId = (typeof providers)[number]["id"];
