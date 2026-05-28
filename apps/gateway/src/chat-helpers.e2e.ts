@@ -697,6 +697,29 @@ export async function beforeAllHook() {
 				baseUrlValue,
 				providerOptions,
 			);
+		} else if (!envVarName && baseUrlValue) {
+			// Provider with required baseUrl but no required API key (e.g. llm-d)
+			const optionalEnv = (
+				provider.env as { optional?: Record<string, string | undefined> }
+			).optional;
+			const optionalApiKeyEnvName = optionalEnv?.apiKey;
+			const token = optionalApiKeyEnvName
+				? (process.env[optionalApiKeyEnvName] ?? "")
+				: "";
+			await createProviderKey(
+				provider.id,
+				token,
+				"api-keys",
+				baseUrlValue,
+				providerOptions,
+			);
+			await createProviderKey(
+				provider.id,
+				token,
+				"credits",
+				baseUrlValue,
+				providerOptions,
+			);
 		}
 	}
 }

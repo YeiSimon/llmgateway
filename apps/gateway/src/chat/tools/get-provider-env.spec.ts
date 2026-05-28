@@ -74,3 +74,48 @@ describe("getProviderEnv", () => {
 		expect(claudeSelection.configIndex).toBe(0);
 	});
 });
+
+describe("getProviderEnv — llm-d (optional API key)", () => {
+	const originalBaseUrl = process.env.LLM_LLM_D_BASE_URL;
+	const originalApiKey = process.env.LLM_LLM_D_API_KEY;
+
+	afterEach(() => {
+		if (originalBaseUrl === undefined) {
+			delete process.env.LLM_LLM_D_BASE_URL;
+		} else {
+			process.env.LLM_LLM_D_BASE_URL = originalBaseUrl;
+		}
+		if (originalApiKey === undefined) {
+			delete process.env.LLM_LLM_D_API_KEY;
+		} else {
+			process.env.LLM_LLM_D_API_KEY = originalApiKey;
+		}
+	});
+
+	it("returns empty token when baseUrl is set but API key is not", () => {
+		process.env.LLM_LLM_D_BASE_URL = "http://10.2.183.64:30331";
+		delete process.env.LLM_LLM_D_API_KEY;
+
+		const result = getProviderEnv("llm-d");
+		expect(result.token).toBe("");
+		expect(result.configIndex).toBe(0);
+	});
+
+	it("returns the API key token when both baseUrl and API key are set", () => {
+		process.env.LLM_LLM_D_BASE_URL = "http://10.2.183.64:30331";
+		process.env.LLM_LLM_D_API_KEY = "my-llmd-key";
+
+		const result = getProviderEnv("llm-d");
+		expect(result.token).toBe("my-llmd-key");
+		expect(result.configIndex).toBe(0);
+	});
+
+	it("throws when required baseUrl env var is missing", () => {
+		delete process.env.LLM_LLM_D_BASE_URL;
+		delete process.env.LLM_LLM_D_API_KEY;
+
+		expect(() => getProviderEnv("llm-d")).toThrow(
+			"LLM_LLM_D_BASE_URL environment variable is required for llm-d provider",
+		);
+	});
+});
