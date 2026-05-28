@@ -27,6 +27,19 @@ import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
 import type { LinkSafetyConfig } from "streamdown";
 
+function randomUUID(): string {
+	if (
+		typeof crypto !== "undefined" &&
+		typeof crypto.randomUUID === "function"
+	) {
+		return crypto.randomUUID();
+	}
+	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+		const r = (Math.random() * 16) | 0;
+		return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+	});
+}
+
 const code = createCodePlugin({
 	themes: ["github-light", "github-dark"],
 });
@@ -80,7 +93,7 @@ function getOrCreateClientId(): string {
 	if (existing) {
 		return existing;
 	}
-	const id = crypto.randomUUID();
+	const id = randomUUID();
 	localStorage.setItem(CLIENT_ID_KEY, id);
 	return id;
 }
@@ -358,7 +371,7 @@ export function ChatSupport() {
 		setReactionOverrides({});
 		// Rotate the client id so the next message opens a brand-new conversation.
 		// The previous one stays persisted for the support team to review.
-		const newId = crypto.randomUUID();
+		const newId = randomUUID();
 		if (typeof window !== "undefined") {
 			localStorage.setItem(CLIENT_ID_KEY, newId);
 		}

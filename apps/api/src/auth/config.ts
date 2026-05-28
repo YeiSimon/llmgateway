@@ -15,7 +15,7 @@ import { logger } from "@llmgateway/logger";
 import { getResendClient, resendAudienceId } from "@llmgateway/shared/email";
 
 const apiUrl = process.env.API_URL ?? "http://localhost:4002";
-const cookieDomain = process.env.COOKIE_DOMAIN ?? "localhost";
+const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const uiUrl = process.env.UI_URL ?? "http://localhost:3002";
 const codeUrl = process.env.CODE_URL ?? "http://localhost:3004";
 const originUrls =
@@ -511,13 +511,17 @@ export const apiAuth: ReturnType<typeof instrumentBetterAuth> =
 	instrumentBetterAuth(
 		betterAuth({
 			advanced: {
-				crossSubDomainCookies: {
-					enabled: true,
-					domain: cookieDomain,
-				},
-				defaultCookieAttributes: {
-					domain: cookieDomain,
-				},
+				...(cookieDomain
+					? {
+							crossSubDomainCookies: {
+								enabled: true,
+								domain: cookieDomain,
+							},
+							defaultCookieAttributes: {
+								domain: cookieDomain,
+							},
+						}
+					: {}),
 			},
 			session: {
 				cookieCache: {

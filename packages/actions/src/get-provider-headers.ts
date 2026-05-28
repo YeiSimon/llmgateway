@@ -79,7 +79,7 @@ export function getProviderHeaders(
 		default:
 			return {
 				...requestIdHeader,
-				Authorization: `Bearer ${token}`,
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			};
 	}
 }

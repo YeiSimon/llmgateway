@@ -34,11 +34,37 @@ export function getProviderEnv(
 	options: GetProviderEnvOptions = {},
 ): ProviderEnvResult {
 	const envVar = getProviderEnvVar(usedProvider);
+
 	if (!envVar) {
-		throw new HTTPException(500, {
-			message: `No environment variable set for provider: ${usedProvider}`,
-		});
+		// Provider has no required API key — check if it has an optional one (e.g. llm-d)
+		const config = getProviderEnvConfig(usedProvider);
+		if (!config) {
+			throw new HTTPException(500, {
+				message: `No environment variable set for provider: ${usedProvider}`,
+			});
+		}
+
+		// Validate required non-apiKey env vars (e.g. baseUrl for llm-d)
+		for (const [key, envVarName] of Object.entries(config.required)) {
+			if (key === "apiKey" || !envVarName) {
+				continue;
+			}
+			if (!process.env[envVarName]) {
+				throw new HTTPException(500, {
+					message: `${envVarName} environment variable is required for ${usedProvider} provider`,
+				});
+			}
+		}
+
+		const optionalApiKeyVar = (
+			config.optional as Record<string, string | undefined> | undefined
+		)?.apiKey;
+		const token = optionalApiKeyVar
+			? (process.env[optionalApiKeyVar] ?? "")
+			: "";
+		return { token, configIndex: 0, envVarName: optionalApiKeyVar ?? "" };
 	}
+
 	const envValue = process.env[envVar];
 	if (!envValue) {
 		throw new HTTPException(500, {

@@ -281,7 +281,7 @@ export async function resolveProviderContext(
 		}
 	}
 
-	if (!usedToken) {
+	if (usedToken === undefined) {
 		throw new HTTPException(500, { message: "No token" });
 	}
 

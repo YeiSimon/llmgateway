@@ -3437,7 +3437,7 @@ chat.openapi(completions, async (c) => {
 		}
 	}
 
-	if (!usedToken) {
+	if (usedToken === undefined) {
 		throw new HTTPException(500, {
 			message: `No token`,
 		});
@@ -4789,7 +4789,7 @@ chat.openapi(completions, async (c) => {
 					// Type guard: narrow variables that TypeScript widens due to loop reassignment
 					if (
 						!usedProvider ||
-						!usedToken ||
+						usedToken === undefined ||
 						!url ||
 						!usedModelFormatted ||
 						!usedModelMapping
@@ -6039,7 +6039,7 @@ chat.openapi(completions, async (c) => {
 				// After retry loop: narrow provider variables for the rest of the streaming body
 				if (
 					!usedProvider ||
-					!usedToken ||
+					usedToken === undefined ||
 					!url ||
 					!usedModelFormatted ||
 					!usedModelMapping
@@ -8446,7 +8446,7 @@ chat.openapi(completions, async (c) => {
 		// Type guard: narrow variables that TypeScript widens due to loop reassignment
 		if (
 			!usedProvider ||
-			!usedToken ||
+			usedToken === undefined ||
 			!url ||
 			!usedModelFormatted ||
 			!usedModelMapping
