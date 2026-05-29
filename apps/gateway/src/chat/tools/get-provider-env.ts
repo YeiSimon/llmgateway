@@ -62,7 +62,17 @@ export function getProviderEnv(
 		const token = optionalApiKeyVar
 			? (process.env[optionalApiKeyVar] ?? "")
 			: "";
-		return { token, configIndex: 0, envVarName: optionalApiKeyVar ?? "" };
+		const envVarName = optionalApiKeyVar ?? "";
+
+		// Respect excludedIndices — if index 0 is excluded (prior failure) and
+		// there is no alternative, throw so the caller can fall back to another provider.
+		if (options.excludedIndices?.has(0)) {
+			throw new HTTPException(500, {
+				message: `No available keys for provider: ${usedProvider}`,
+			});
+		}
+
+		return { token, configIndex: 0, envVarName };
 	}
 
 	const envValue = process.env[envVar];

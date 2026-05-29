@@ -21,6 +21,7 @@ export const llmdModels = [
 				tools: true,
 				jsonOutput: true,
 				supportedParameters: ["temperature", "max_tokens", "top_p", "stream"],
+				splitTaggedReasoning: true,
 				test: "only",
 			},
 		],
