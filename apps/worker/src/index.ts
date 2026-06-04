@@ -9,6 +9,7 @@ export {
 	processPendingVideoJobs,
 	processPendingWebhookDeliveries,
 } from "./services/video-jobs.js";
+export { processPendingLogForwarderDeliveries } from "./services/log-forwarder.js";
 
 let isShuttingDown = false;
 

@@ -402,7 +402,7 @@ logForwardersRoute.openapi(testForwarder, async (c) => {
 	const logTypes = forwarder.logTypes as Array<"gateway" | "audit" | "access">;
 	const logType = logTypes[0] ?? "audit";
 
-	enqueueAuditEvent({
+	const enqueuedCount = await enqueueAuditEvent({
 		organizationId: orgId,
 		logType,
 		payload: {
@@ -414,7 +414,12 @@ logForwardersRoute.openapi(testForwarder, async (c) => {
 		timestamp: new Date(),
 	});
 
-	return c.json({ message: "Test event dispatched" });
+	return c.json({
+		message:
+			enqueuedCount > 0
+				? "Test event queued for delivery"
+				: "No enabled forwarders matched the test event",
+	});
 });
 
 // GET /:id/outbox — list dead-letter outbox items
