@@ -8,7 +8,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
 import { UnsupportedAudioFormatError } from "@llmgateway/actions";
-import { redisClient } from "@llmgateway/cache";
+import { DynamicConfig, redisClient } from "@llmgateway/cache";
 import { db } from "@llmgateway/db";
 import {
 	createHonoRequestLogger,
@@ -62,6 +62,20 @@ export const config = {
 };
 
 export const app = new OpenAPIHono<ServerTypes>();
+
+// Dynamic config — subscribes to Redis pub/sub for zero-restart config changes.
+// A separate subscriber connection is required (subscribe mode cannot run other commands).
+export const dynamicConfig = new DynamicConfig();
+void (async () => {
+	try {
+		await dynamicConfig.subscribe();
+	} catch (err) {
+		logger.warn(
+			"DynamicConfig: failed to subscribe to Redis config updates — continuing without dynamic config",
+			{ error: err },
+		);
+	}
+})();
 
 const honoRequestLogger = createHonoRequestLogger({ service: "gateway" });
 

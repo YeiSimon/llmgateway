@@ -1991,4 +1991,189 @@ keysApi.openapi(deleteIamRule, async (c) => {
 	});
 });
 
+// POST /projects/:projectId/keys/:keyId/rotate — rotate a key with grace period
+const rotateKey = createRoute({
+	method: "post",
+	path: "/projects/:projectId/keys/:keyId/rotate",
+	request: {
+		params: z.object({
+			projectId: z.string(),
+			keyId: z.string(),
+		}),
+		body: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						gracePeriodDays: z
+							.number()
+							.int()
+							.min(0)
+							.max(90)
+							.optional()
+							.default(7),
+					}),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						newKey: apiKeySchema.extend({ token: z.string() }),
+						oldKey: z.object({
+							id: z.string(),
+							gracePeriodEndsAt: z.date().nullable(),
+						}),
+					}),
+				},
+			},
+			description: "Key rotated successfully.",
+		},
+	},
+});
+
+keysApi.openapi(rotateKey, async (c) => {
+	const user = c.get("user");
+	if (!user) {
+		throw new HTTPException(401, { message: "Unauthorized" });
+	}
+
+	const { projectId, keyId } = c.req.param();
+	const { gracePeriodDays } = c.req.valid("json");
+
+	// Verify caller has write access to the project
+	const userOrgs = await db.query.userOrganization.findMany({
+		where: { userId: { eq: user.id } },
+		with: {
+			organization: {
+				with: { projects: true },
+			},
+		},
+	});
+
+	const projectIds = userOrgs.flatMap((org) =>
+		org
+			.organization!.projects.filter((p) => p.status !== "deleted")
+			.map((p) => p.id),
+	);
+
+	if (!projectIds.includes(projectId)) {
+		throw new HTTPException(403, {
+			message: "You don't have access to this project",
+		});
+	}
+
+	// Load and verify the key belongs to the project
+	const oldKey = await db.query.apiKey.findFirst({
+		where: {
+			id: { eq: keyId },
+			projectId: { eq: projectId },
+		},
+		with: {
+			project: {
+				with: { organization: true },
+			},
+		},
+	});
+
+	if (!oldKey) {
+		throw new HTTPException(404, { message: "API key not found" });
+	}
+
+	if (!oldKey.project) {
+		throw new HTTPException(404, { message: "Project not found for API key" });
+	}
+
+	// Check user role — developers/team_managers can only rotate their own keys
+	const projectOrgId = oldKey.project.organizationId;
+	const userOrg = userOrgs.find((o) => o.organizationId === projectOrgId);
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
+
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to rotate API keys",
+		});
+	}
+
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		oldKey.createdBy !== user.id
+	) {
+		throw new HTTPException(403, {
+			message: "You don't have permission to rotate this API key",
+		});
+	}
+
+	// Generate new token using the same pattern as key creation
+	const prefix =
+		process.env.NODE_ENV === "development" ? "llmgdev_" : "llmgtwy_";
+	const rawToken = prefix + shortid(40);
+
+	const now = new Date();
+	const gracePeriodOffsetMs = gracePeriodDays * 86_400_000;
+	const gracePeriodEndsAt = new Date(now.getTime() + gracePeriodOffsetMs);
+
+	// Insert new key — same org, project, lifecycle settings; rotatedFromId set
+	const [newKey] = await db
+		.insert(tables.apiKey)
+		.values({
+			token: rawToken,
+			projectId: oldKey.projectId,
+			description: oldKey.description,
+			status: "active",
+			usageLimit: oldKey.usageLimit,
+			periodUsageLimit: oldKey.periodUsageLimit,
+			periodUsageDurationValue: oldKey.periodUsageDurationValue,
+			periodUsageDurationUnit: oldKey.periodUsageDurationUnit,
+			createdBy: user.id,
+			rotatedFromId: oldKey.id,
+			lineageId: oldKey.lineageId,
+			costCenter: oldKey.costCenter,
+			rotationPeriodDays: oldKey.rotationPeriodDays,
+			inactivityTimeoutDays: oldKey.inactivityTimeoutDays,
+			expiresAt: oldKey.expiresAt,
+		})
+		.returning();
+
+	// Update old key — start grace period and record rotation time
+	const [updatedOldKey] = await db
+		.update(tables.apiKey)
+		.set({
+			gracePeriodEndsAt,
+			lastRotationAt: now,
+		})
+		.where(eq(tables.apiKey.id, keyId))
+		.returning();
+
+	await logAuditEvent({
+		organizationId: projectOrgId,
+		userId: user.id,
+		action: "api_key.create",
+		resourceType: "api_key",
+		resourceId: newKey.id,
+		metadata: {
+			resourceName: newKey.description,
+			projectId,
+			rotatedFromId: oldKey.id,
+			gracePeriodDays,
+		},
+	});
+
+	return c.json({
+		newKey: serializeApiKey({ ...newKey, token: rawToken }),
+		oldKey: {
+			id: updatedOldKey.id,
+			gracePeriodEndsAt: updatedOldKey.gracePeriodEndsAt,
+		},
+	});
+});
+
 export default keysApi;

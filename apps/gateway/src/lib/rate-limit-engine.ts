@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { dynamicConfig } from "@/app.js";
+
 import { redisClient } from "@llmgateway/cache";
 import { and, db, eq, isNull, or, tables } from "@llmgateway/db";
 import { rateLimitedTotal } from "@llmgateway/instrumentation";
@@ -174,7 +176,14 @@ export async function checkAndIncrementRateLimits(
 		);
 	} catch (err) {
 		logger.error("Rate limit engine: failed to load rules", err as Error);
-		// Fail-open: if we can't load rules, allow the request
+		const failMode = dynamicConfig.get<string>("rate_limit_fail_mode", "open");
+		if (failMode === "closed") {
+			return {
+				allowed: false,
+				rejectedBy: "rate_limit_fail_mode:closed",
+				retryAfterSeconds: null,
+			};
+		}
 		return { allowed: true, rejectedBy: null, retryAfterSeconds: null };
 	}
 
@@ -222,7 +231,14 @@ export async function checkAndIncrementRateLimits(
 		);
 	} catch (err) {
 		logger.error("Rate limit engine: Redis eval failed", err as Error);
-		// Fail-open on Redis error
+		const failMode = dynamicConfig.get<string>("rate_limit_fail_mode", "open");
+		if (failMode === "closed") {
+			return {
+				allowed: false,
+				rejectedBy: "rate_limit_fail_mode:closed",
+				retryAfterSeconds: null,
+			};
+		}
 		return { allowed: true, rejectedBy: null, retryAfterSeconds: null };
 	}
 

@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
+import { Redis } from "ioredis";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -9,6 +10,7 @@ import { adminMiddleware } from "@/middleware/admin.js";
 import { getStripe } from "@/routes/payments.js";
 
 import { logAuditEvent } from "@llmgateway/audit";
+import { DynamicConfig } from "@llmgateway/cache";
 import {
 	aliasedTable,
 	and,
@@ -9865,6 +9867,69 @@ admin.openapi(getDevpassSubscriber, async (c) => {
 			source: p.source ?? null,
 		})),
 	});
+});
+
+// ─── Settings pub/sub (B3) ───────────────────────────────────────────────────
+
+const settingsRedis = new Redis({
+	host: process.env.REDIS_HOST ?? "localhost",
+	port: Number(process.env.REDIS_PORT) || 6379,
+	password: process.env.REDIS_PASSWORD,
+});
+
+const patchSettingsRoute = createRoute({
+	summary: "Upsert a system setting",
+	description:
+		"Upsert a key/value entry in system_settings and publish the change to all gateway instances via Redis pub/sub.",
+	operationId: "patchAdminSettings",
+	method: "patch",
+	path: "/settings",
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						key: z.string().min(1).openapi({ example: "rate_limit_fail_mode" }),
+						value: z.unknown().openapi({ example: "open" }),
+						category: z
+							.enum(["gateway", "security", "audit", "retention", "limits"])
+							.default("gateway"),
+					}),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({ ok: z.boolean(), key: z.string() }),
+				},
+			},
+			description: "Setting upserted and published.",
+		},
+	},
+});
+
+admin.openapi(patchSettingsRoute, async (c) => {
+	const user = c.get("user");
+	if (!user?.id) {
+		throw new HTTPException(401, { message: "Unauthorized" });
+	}
+
+	const { key, value, category } = c.req.valid("json");
+
+	await db
+		.insert(tables.systemSettings)
+		.values({ key, value, category, updatedBy: user.id })
+		.onConflictDoUpdate({
+			target: tables.systemSettings.key,
+			set: { value, category, updatedAt: new Date(), updatedBy: user.id },
+		});
+
+	await DynamicConfig.publish(settingsRedis, key, value);
+
+	return c.json({ ok: true, key });
 });
 
 export default admin;

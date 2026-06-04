@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 
 import { redisClient } from "@llmgateway/cache";
-import { closeDatabase } from "@llmgateway/db";
+import { closeDatabase, ClickHouseWriter } from "@llmgateway/db";
 import {
 	initializeInstrumentation,
 	shutdownInstrumentation,
@@ -9,6 +9,7 @@ import {
 import { logger, toError } from "@llmgateway/logger";
 
 import { app } from "./app.js";
+import { setClickHouseWriter } from "./lib/logs.js";
 
 import type { ServerType } from "@hono/node-server";
 import type { NodeSDK } from "@opentelemetry/sdk-node";
@@ -22,6 +23,7 @@ const port = Number(process.env.PORT) || 4001;
 const keepAliveTimeoutS = Number(process.env.KEEP_ALIVE_TIMEOUT_S) || 620;
 
 let sdk: NodeSDK | null = null;
+let clickhouseWriter: ClickHouseWriter | null = null;
 
 async function startServer() {
 	// Initialize tracing for gateway service
@@ -33,6 +35,15 @@ async function startServer() {
 	} catch (error) {
 		logger.error("Failed to initialize instrumentation", error as Error);
 		// Continue without tracing
+	}
+
+	// Initialize ClickHouse writer if CLICKHOUSE_URL is set (optional sidecar)
+	if (process.env.CLICKHOUSE_URL) {
+		clickhouseWriter = new ClickHouseWriter(process.env.CLICKHOUSE_URL);
+		setClickHouseWriter(clickhouseWriter);
+		logger.info("ClickHouse writer initialized", {
+			url: process.env.CLICKHOUSE_URL,
+		});
 	}
 
 	logger.info("Server starting", { port });
@@ -109,6 +120,12 @@ const gracefulShutdown = async (signal: string, server: ServerType) => {
 		logger.info("Closing Redis connection");
 		await redisClient.quit();
 		logger.info("Redis connection closed");
+
+		if (clickhouseWriter) {
+			logger.info("Flushing ClickHouse writer");
+			await clickhouseWriter.close();
+			logger.info("ClickHouse writer closed");
+		}
 
 		// Shutdown instrumentation last to ensure all spans are flushed
 		if (sdk) {

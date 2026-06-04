@@ -3,12 +3,22 @@ import {
 	db,
 	log,
 	UnifiedFinishReason,
+	buildClickHouseRow,
+	type ClickHouseWriter,
 	type LogInsertData,
 } from "@llmgateway/db";
 import { recordChatCompletionMetrics } from "@llmgateway/instrumentation";
 import { logger } from "@llmgateway/logger";
 
 import type { InferInsertModel } from "@llmgateway/db";
+
+// Module-level ClickHouse writer — set once at startup by serve.ts when
+// CLICKHOUSE_URL is present. Null means ClickHouse is not configured.
+let _clickhouseWriter: ClickHouseWriter | null = null;
+
+export function setClickHouseWriter(writer: ClickHouseWriter | null): void {
+	_clickhouseWriter = writer;
+}
 
 /**
  * Check if a finish reason is expected to map to UNKNOWN
@@ -301,6 +311,11 @@ export async function insertLog(
 			: undefined,
 		errorType,
 	});
+
+	// Non-blocking ClickHouse write (fire-and-forget). PostgreSQL remains authoritative.
+	if (_clickhouseWriter) {
+		_clickhouseWriter.enqueue(buildClickHouseRow(logData, logData.id));
+	}
 
 	if (options?.syncInsert) {
 		await db.insert(log).values(logData as LogData);

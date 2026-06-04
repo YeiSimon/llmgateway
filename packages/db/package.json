@@ -26,6 +26,7 @@
 		"seed": "node dist/seed.js"
 	},
 	"dependencies": {
+		"@clickhouse/client": "^1.19.0",
 		"@kubiks/otel-drizzle": "2.0.3",
 		"@llmgateway/cache": "workspace:*",
 		"@llmgateway/logger": "workspace:*",
