@@ -146,11 +146,21 @@ export type SerializedUser = Pick<User, "id" | "email" | "name">;
 
 export type SerializedApiKey = Omit<
 	ApiKey,
-	"createdAt" | "updatedAt" | "currentPeriodStartedAt"
+	| "createdAt"
+	| "updatedAt"
+	| "currentPeriodStartedAt"
+	| "gracePeriodEndsAt"
+	| "lastRotationAt"
+	| "expiresAt"
+	| "lastExpiryWarningSentAt"
 > & {
 	createdAt: string;
 	updatedAt: string;
 	currentPeriodStartedAt: string | null;
+	gracePeriodEndsAt?: string | null;
+	lastRotationAt?: string | null;
+	expiresAt?: string | null;
+	lastExpiryWarningSentAt?: string | null;
 };
 
 export type SerializedApiKeyIamRule = Omit<

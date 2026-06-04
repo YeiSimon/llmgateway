@@ -110,12 +110,13 @@ export function ApiKeysList({
 			refetchOnMount: false,
 			refetchInterval: false,
 			// Only use initialData when filter is "all" (matches the SSR data)
+
 			...(creatorFilter === "all" && {
 				initialData: {
 					apiKeys: initialData.map((key) => ({
 						...key,
 						maskedToken: key.maskedToken,
-					})),
+					})) as any,
 					userRole: "owner" as const,
 				},
 			}),

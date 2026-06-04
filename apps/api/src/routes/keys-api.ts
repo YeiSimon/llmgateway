@@ -341,6 +341,16 @@ const apiKeySchema = z.object({
 			}),
 		)
 		.optional(),
+	lineageId: z.string().nullable(),
+	rotationPeriodDays: z.number().int().nullable(),
+	rotatedFromId: z.string().nullable(),
+	gracePeriodEndsAt: z.date().nullable(),
+	inactivityTimeoutDays: z.number().int().nullable(),
+	disabledReason: z.string().nullable(),
+	lastRotationAt: z.date().nullable(),
+	expiresAt: z.date().nullable(),
+	lastExpiryWarningSentAt: z.date().nullable(),
+	costCenter: z.string().nullable(),
 });
 
 // Schema for creating a new API key

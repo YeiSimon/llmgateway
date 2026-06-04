@@ -161,8 +161,24 @@ const ORGANIZATION_SETTINGS = [
 		label: "Team",
 	},
 	{
+		href: "org/roles",
+		label: "Roles",
+	},
+	{
+		href: "org/teams",
+		label: "Teams",
+	},
+	{
+		href: "org/sso",
+		label: "SSO",
+	},
+	{
 		href: "org/audit-logs",
 		label: "Audit Logs",
+	},
+	{
+		href: "settings/log-forwarders",
+		label: "Log Forwarders",
 	},
 ] as const;
 
@@ -388,6 +404,46 @@ function OrganizationSection({
 			<SidebarGroupContent className="mt-2">
 				<SidebarMenu>
 					<OrgNavItem
+						href={buildOrgUrl("analytics")}
+						label="Analytics"
+						icon={AnimatedBarChart3}
+						isActive={isActive("analytics")}
+						isMobile={isMobile}
+						toggleSidebar={toggleSidebar}
+					/>
+					<OrgNavItem
+						href={buildOrgUrl("logs")}
+						label="Log Explorer"
+						icon={AnimatedMessageSquare}
+						isActive={isActive("logs")}
+						isMobile={isMobile}
+						toggleSidebar={toggleSidebar}
+					/>
+					<OrgNavItem
+						href={buildOrgUrl("limits")}
+						label="Rate Limits"
+						icon={AnimatedShield}
+						isActive={isActive("limits")}
+						isMobile={isMobile}
+						toggleSidebar={toggleSidebar}
+					/>
+					<OrgNavItem
+						href={buildOrgUrl("providers")}
+						label="Provider Health"
+						icon={AnimatedActivity}
+						isActive={isActive("providers")}
+						isMobile={isMobile}
+						toggleSidebar={toggleSidebar}
+					/>
+					<OrgNavItem
+						href={buildOrgUrl("guide")}
+						label="Setup Guide"
+						icon={AnimatedTerminal}
+						isActive={isActive("guide")}
+						isMobile={isMobile}
+						toggleSidebar={toggleSidebar}
+					/>
+					<OrgNavItem
 						href={buildOrgUrl("org/provider-keys")}
 						label="Provider Keys"
 						icon={AnimatedKeyRound}
@@ -440,7 +496,11 @@ function OrganizationSection({
 								isActive("org/policies") ||
 								isActive("org/preferences") ||
 								isActive("org/team") ||
-								isActive("org/audit-logs")
+								isActive("org/roles") ||
+								isActive("org/teams") ||
+								isActive("org/sso") ||
+								isActive("org/audit-logs") ||
+								isActive("settings/log-forwarders")
 							}
 							tooltip="Settings"
 						>
