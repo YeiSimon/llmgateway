@@ -132,5 +132,8 @@ export {
 	recordRequestCompleted,
 	getMetrics,
 	getMetricsContentType,
+	circuitBreakerState,
+	rateLimitedTotal,
+	budgetAlertTotal,
 	type ChatCompletionMetrics,
 } from "./metrics.js";

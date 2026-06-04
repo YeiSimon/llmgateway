@@ -18,6 +18,17 @@ const baseApiKey = {
 	currentPeriodStartedAt: null,
 	projectId: "project-1",
 	createdBy: "user-1",
+	// Lifecycle fields (all nullable / default-valued)
+	lineageId: "key-1",
+	rotationPeriodDays: null,
+	rotatedFromId: null,
+	gracePeriodEndsAt: null,
+	inactivityTimeoutDays: null,
+	disabledReason: null,
+	lastRotationAt: null,
+	expiresAt: null,
+	lastExpiryWarningSentAt: null,
+	costCenter: null,
 };
 
 describe("assertApiKeyWithinUsageLimits", () => {

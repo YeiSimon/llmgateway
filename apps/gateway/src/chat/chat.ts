@@ -14,6 +14,10 @@ import {
 } from "@/lib/api-key-health.js";
 import { assertApiKeyWithinUsageLimits } from "@/lib/api-key-usage-limits.js";
 import {
+	checkBudgetsPreflight,
+	incrementBudgets,
+} from "@/lib/budget-engine.js";
+import {
 	findApiKeyByToken,
 	findProjectById,
 	findOrganizationById,
@@ -22,6 +26,12 @@ import {
 	findActiveProviderKeys,
 	findProviderKeysByProviders,
 } from "@/lib/cached-queries.js";
+import {
+	buildBreakerKey,
+	isBreakerOpen,
+	recordBreakerFailure,
+	recordBreakerSuccess,
+} from "@/lib/circuit-breaker.js";
 import { getClientIpFromRequest } from "@/lib/client-ip.js";
 import {
 	isCodingModel,
@@ -47,6 +57,7 @@ import {
 	pickNonRateLimitedCandidates,
 	providerRateLimitWindows,
 } from "@/lib/provider-rate-limit.js";
+import { checkAndIncrementRateLimits } from "@/lib/rate-limit-engine.js";
 import { getResponsesContext } from "@/lib/responses-context.js";
 import { getNoFallbackRoutingMetadata } from "@/lib/routing-metadata.js";
 import {
@@ -1727,6 +1738,42 @@ chat.openapi(completions, async (c) => {
 		if (iamFilteredModelProviders.length === 0) {
 			throw new HTTPException(403, {
 				message: `No provider with cached input pricing is available for model ${modelInfo.id}. Coding plans require providers with prompt caching support; enable access to all models in your dashboard settings at code.llmgateway.io/dashboard to use this model.`,
+			});
+		}
+	}
+
+	// Enterprise pre-flight checks — run after IAM so denied requests never
+	// consume a rate-limit slot or budget quota.
+	{
+		const rlResult = await checkAndIncrementRateLimits(
+			project.organizationId,
+			null,
+			apiKey.id,
+			apiKey.lineageId,
+			requestedProvider ?? "llmgateway",
+			requestedModel,
+			"requests",
+		);
+		if (!rlResult.allowed && rlResult.rejectedBy) {
+			if (rlResult.retryAfterSeconds) {
+				c.header("Retry-After", String(rlResult.retryAfterSeconds));
+			}
+			throw new HTTPException(429, {
+				message: `Rate limit exceeded (${rlResult.rejectedBy}). Please try again later.`,
+			});
+		}
+
+		const budgetResult = await checkBudgetsPreflight(
+			project.organizationId,
+			null,
+			apiKey.id,
+			apiKey.lineageId,
+			requestedProvider ?? "llmgateway",
+			requestedModel,
+		);
+		if (!budgetResult.allowed && budgetResult.rejectedBy) {
+			throw new HTTPException(429, {
+				message: `Rate limit exceeded (${budgetResult.rejectedBy}). Monthly budget exhausted for this period.`,
 			});
 		}
 	}
@@ -3446,6 +3493,14 @@ chat.openapi(completions, async (c) => {
 	usedApiKeyHash = getApiKeyFingerprint(usedToken);
 	routingMetadata = withUsedApiKeyHash(routingMetadata, usedApiKeyHash);
 
+	// Circuit breaker pre-check: if the chosen provider's breaker is open,
+	// treat it like a routing failure and let the fallback mechanism handle it.
+	if (await isBreakerOpen(buildBreakerKey(usedProvider, baseModelName))) {
+		throw new HTTPException(503, {
+			message: `Provider ${usedProvider} is temporarily unavailable (circuit breaker open). Please try again shortly or use a different provider.`,
+		});
+	}
+
 	// Vertex's OpenAI-compatible endpoint requires an OAuth2 access token
 	// derived from the configured service account JSON. The SA JSON is the
 	// long-lived credential (kept in usedApiKeyHash above for health tracking)
@@ -3477,8 +3532,26 @@ chat.openapi(completions, async (c) => {
 	const insertLog = (
 		logData: Parameters<typeof _insertLog>[0],
 		options?: Parameters<typeof _insertLog>[1],
-	) =>
-		_insertLog(
+	) => {
+		// Budget post-flight: fire-and-forget after successful completions so
+		// the response is never delayed by quota accounting.
+		if (!logData.hasError && !logData.canceled && !logData.retried) {
+			const inputTok = parseFloat(String(logData.promptTokens ?? 0));
+			const outputTok = parseFloat(String(logData.completionTokens ?? 0));
+			if (inputTok + outputTok > 0) {
+				void incrementBudgets(
+					logData.organizationId,
+					null,
+					logData.apiKeyId,
+					apiKey.lineageId,
+					logData.usedProvider,
+					logData.usedModel,
+					inputTok + outputTok,
+				);
+			}
+		}
+
+		return _insertLog(
 			{
 				...logData,
 				internalContentFilter: shouldTagContentFilter
@@ -3489,6 +3562,7 @@ chat.openapi(completions, async (c) => {
 			},
 			options,
 		);
+	};
 
 	if (contentFilterBlocked) {
 		const contentFilterResponseId = `chatcmpl-${Date.now()}`;
@@ -5365,6 +5439,9 @@ chat.openapi(completions, async (c) => {
 									baseModelName,
 								);
 							}
+							void recordBreakerFailure(
+								buildBreakerKey(usedProvider, baseModelName),
+							);
 
 							if (willRetrySameProvider && sameProviderRetryContext) {
 								routingAttempts.push(
@@ -5638,6 +5715,12 @@ chat.openapi(completions, async (c) => {
 								baseModelName,
 							);
 						}
+						// Only trip the breaker for real upstream errors, not content_filter
+						if (finishReason !== "content_filter") {
+							void recordBreakerFailure(
+								buildBreakerKey(usedProvider, baseModelName),
+							);
+						}
 
 						if (willRetrySameProvider && sameProviderRetryContext) {
 							routingAttempts.push(
@@ -5903,6 +5986,11 @@ chat.openapi(completions, async (c) => {
 								inferredStatusCode,
 								errorResponseText,
 								baseModelName,
+							);
+						}
+						if (errorType !== "content_filter") {
+							void recordBreakerFailure(
+								buildBreakerKey(usedProvider, baseModelName),
 							);
 						}
 
@@ -8369,6 +8457,16 @@ chat.openapi(completions, async (c) => {
 						}
 					}
 
+					// Circuit breaker recording alongside the health tracker
+					{
+						const cbKey = buildBreakerKey(usedProvider, baseModelName);
+						if (streamingError !== null) {
+							void recordBreakerFailure(cbKey);
+						} else {
+							void recordBreakerSuccess(cbKey);
+						}
+					}
+
 					// Save streaming cache if enabled and not canceled and no errors
 					if (
 						cachingEnabled &&
@@ -8712,6 +8810,7 @@ chat.openapi(completions, async (c) => {
 			if (trackedKeyHealthId) {
 				reportTrackedKeyError(trackedKeyHealthId, 0, undefined, baseModelName);
 			}
+			void recordBreakerFailure(buildBreakerKey(usedProvider, baseModelName));
 
 			if (willRetrySameProvider && sameProviderRetryContext) {
 				routingAttempts.push(
@@ -9248,6 +9347,9 @@ chat.openapi(completions, async (c) => {
 					errorResponseText,
 					baseModelName,
 				);
+			}
+			if (finishReason !== "content_filter") {
+				void recordBreakerFailure(buildBreakerKey(usedProvider, baseModelName));
 			}
 
 			if (willRetrySameProvider && sameProviderRetryContext) {
@@ -10190,6 +10292,9 @@ chat.openapi(completions, async (c) => {
 	if (trackedKeyHealthId) {
 		reportTrackedKeySuccess(trackedKeyHealthId, baseModelName);
 	}
+
+	// Circuit breaker: non-streaming success path
+	void recordBreakerSuccess(buildBreakerKey(usedProvider, baseModelName));
 
 	if (cachingEnabled && cacheKey && !stream && !hasEmptyNonStreamingResponse) {
 		await setCache(

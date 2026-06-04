@@ -491,10 +491,25 @@ export const apiKey = pgTable(
 		createdBy: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		// Lifecycle management
+		rotationPeriodDays: integer(),
+		rotatedFromId: text(),
+		gracePeriodEndsAt: timestamp(),
+		inactivityTimeoutDays: integer(),
+		disabledReason: text(),
+		lastRotationAt: timestamp(),
+		expiresAt: timestamp(),
+		lastExpiryWarningSentAt: timestamp(),
+		// Stable identity that survives rotation — rate limit rules keyed by lineageId
+		// apply across all generations of a key without needing rule copy-forward.
+		lineageId: text().notNull().$defaultFn(shortid),
+		costCenter: text(),
 	},
 	(table) => [
 		index("api_key_project_id_idx").on(table.projectId),
 		index("api_key_created_by_idx").on(table.createdBy),
+		index("api_key_lineage_id_idx").on(table.lineageId),
+		index("api_key_expires_at_idx").on(table.expiresAt),
 	],
 );
 
@@ -2455,4 +2470,183 @@ export const playgroundVideoHistory = pgTable(
 		>(),
 	},
 	(table) => [index("playground_video_history_user_id_idx").on(table.userId)],
+);
+
+// ─── Enterprise: Dynamic system settings ─────────────────────────────────────
+
+export const systemSettings = pgTable("system_settings", {
+	key: text().primaryKey(),
+	value: jsonb().notNull(),
+	category: text({
+		enum: ["gateway", "security", "audit", "retention", "limits"],
+	}).notNull(),
+	updatedAt: timestamp()
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => new Date()),
+	updatedBy: text().references(() => user.id),
+});
+
+// ─── Enterprise: SSO / OIDC per-organization config ──────────────────────────
+
+export const ssoConfig = pgTable("sso_config", {
+	id: text().primaryKey().notNull().$defaultFn(shortid),
+	organizationId: text()
+		.notNull()
+		.references(() => organization.id, { onDelete: "cascade" })
+		.unique(),
+	provider: text({
+		enum: ["oidc", "google", "microsoft", "okta", "github"],
+	}).notNull(),
+	clientId: text().notNull(),
+	clientSecretEncrypted: text().notNull(),
+	discoveryUrl: text(),
+	enabled: boolean().notNull().default(true),
+	enforced: boolean().notNull().default(false),
+	defaultRole: text({
+		enum: ["owner", "admin", "developer"],
+	})
+		.notNull()
+		.default("developer"),
+	jitProvisioning: boolean().notNull().default(true),
+	createdAt: timestamp().notNull().defaultNow(),
+	updatedAt: timestamp()
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => new Date()),
+});
+
+// ─── Enterprise: Multi-window sliding rate limit rules ───────────────────────
+
+export const rateLimitSubjectKind = [
+	"user",
+	"api_key",
+	"organization",
+	"provider",
+	"model",
+] as const;
+
+export type RateLimitSubjectKind = (typeof rateLimitSubjectKind)[number];
+
+export const rateLimitRule = pgTable(
+	"rate_limit_rule",
+	{
+		id: text().primaryKey().notNull().$defaultFn(shortid),
+		createdAt: timestamp().notNull().defaultNow(),
+		updatedAt: timestamp()
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+		organizationId: text().references(() => organization.id, {
+			onDelete: "cascade",
+		}),
+		subjectKind: text({ enum: rateLimitSubjectKind }).notNull(),
+		// null = applies to ALL subjects of this kind within the org
+		subjectId: text(),
+		// seconds: 60 | 300 | 3600 | 18000 | 86400 | 604800
+		windowSeconds: integer().notNull(),
+		// "requests" = hard pre-flight check; "tokens" = soft post-flight check
+		metric: text({ enum: ["requests", "tokens"] })
+			.notNull()
+			.default("requests"),
+		limit: integer().notNull(),
+		provider: text(),
+		model: text(),
+		enabled: boolean().notNull().default(true),
+		reason: text(),
+	},
+	(table) => [
+		index("rate_limit_rule_org_idx").on(table.organizationId),
+		index("rate_limit_rule_subject_idx").on(table.subjectKind, table.subjectId),
+	],
+);
+
+// ─── Enterprise: Natural-period budget caps ───────────────────────────────────
+
+export const budgetCap = pgTable(
+	"budget_cap",
+	{
+		id: text().primaryKey().notNull().$defaultFn(shortid),
+		createdAt: timestamp().notNull().defaultNow(),
+		updatedAt: timestamp()
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+		organizationId: text().references(() => organization.id, {
+			onDelete: "cascade",
+		}),
+		subjectKind: text({ enum: rateLimitSubjectKind }).notNull(),
+		subjectId: text(),
+		period: text({ enum: ["daily", "weekly", "monthly"] }).notNull(),
+		// Weighted token limit (raw tokens × per-model multipliers)
+		limit: decimal().notNull(),
+		enabled: boolean().notNull().default(true),
+		reason: text(),
+	},
+	(table) => [
+		index("budget_cap_org_idx").on(table.organizationId),
+		index("budget_cap_subject_idx").on(table.subjectKind, table.subjectId),
+	],
+);
+
+// ─── Enterprise: Audit log forwarding (Syslog / Kafka / Webhook) ─────────────
+
+export const logForwarder = pgTable(
+	"log_forwarder",
+	{
+		id: text().primaryKey().notNull().$defaultFn(shortid),
+		organizationId: text()
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		name: text().notNull(),
+		enabled: boolean().notNull().default(true),
+		forwarderType: text({
+			enum: ["udp_syslog", "tcp_syslog", "kafka", "webhook"],
+		}).notNull(),
+		logTypes: json().$type<Array<"gateway" | "audit" | "access">>().notNull(),
+		config: jsonb()
+			.$type<{
+				host?: string;
+				port?: number;
+				brokers?: string[];
+				topic?: string;
+				saslUsername?: string;
+				saslPasswordEncrypted?: string;
+				url?: string;
+				secretEncrypted?: string;
+				headers?: Record<string, string>;
+			}>()
+			.notNull(),
+		sentCount: integer().notNull().default(0),
+		errorCount: integer().notNull().default(0),
+		lastSentAt: timestamp(),
+		lastError: text(),
+		createdAt: timestamp().notNull().defaultNow(),
+		updatedAt: timestamp()
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [index("log_forwarder_org_idx").on(table.organizationId)],
+);
+
+// Durable outbox for webhook retries (failed deliveries are parked here and
+// retried by a background drain loop rather than being silently dropped).
+export const logForwarderOutbox = pgTable(
+	"log_forwarder_outbox",
+	{
+		id: text().primaryKey().notNull().$defaultFn(shortid),
+		forwarderId: text()
+			.notNull()
+			.references(() => logForwarder.id, { onDelete: "cascade" }),
+		payload: jsonb().notNull(),
+		lastError: text(),
+		attempts: integer().notNull().default(0),
+		nextRetryAt: timestamp().notNull().defaultNow(),
+		createdAt: timestamp().notNull().defaultNow(),
+	},
+	(table) => [
+		index("log_forwarder_outbox_forwarder_idx").on(table.forwarderId),
+		index("log_forwarder_outbox_next_retry_idx").on(table.nextRetryAt),
+	],
 );

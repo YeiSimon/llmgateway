@@ -67,6 +67,30 @@ export const requestsInFlight = new Gauge({
 	registers: [metricsRegistry],
 });
 
+// Gauge for circuit breaker state per provider+model (0=closed,1=open,2=half-open)
+export const circuitBreakerState = new Gauge({
+	name: "circuit_breaker_state",
+	help: "Circuit breaker state (0=closed, 1=open, 2=half-open)",
+	labelNames: ["provider", "model"] as const,
+	registers: [metricsRegistry],
+});
+
+// Counter for requests rejected by rate limiter
+export const rateLimitedTotal = new Counter({
+	name: "gateway_rate_limited_total",
+	help: "Requests rejected by rate limiter",
+	labelNames: ["subject_kind", "window_seconds"] as const,
+	registers: [metricsRegistry],
+});
+
+// Counter for budget threshold crossings
+export const budgetAlertTotal = new Counter({
+	name: "gateway_budget_alert_total",
+	help: "Budget threshold crossings",
+	labelNames: ["subject_kind", "period", "threshold_pct"] as const,
+	registers: [metricsRegistry],
+});
+
 export interface ChatCompletionMetrics {
 	model: string;
 	provider: string;

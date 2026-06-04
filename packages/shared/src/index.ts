@@ -68,3 +68,5 @@ export {
 } from "./token-estimate.js";
 
 export * from "./components/ui/index.js";
+
+export { encryptSecret, decryptSecret, parseEncryptionKey } from "./crypto.js";

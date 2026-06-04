@@ -298,6 +298,30 @@ app.openapi(root, async (c) => {
 	return c.json(response, statusCode as 200 | 503);
 });
 
+// K8s liveness probe — is the process alive and not stuck?
+app.get("/health/live", (c) => c.json({ status: "ok" }));
+
+// K8s readiness probe — is the pod ready to serve AI traffic?
+// Only passes when Redis is reachable AND ≥1 active provider key is configured.
+app.get("/health/ready", async (c) => {
+	const checks = await Promise.allSettled([
+		redisClient.ping(),
+		db.query.providerKey.findFirst({
+			where: { status: { eq: "active" } },
+		}),
+	]);
+
+	const redisOk = checks[0].status === "fulfilled";
+	const hasProvider =
+		checks[1].status === "fulfilled" && checks[1].value !== undefined;
+
+	const ready = redisOk && hasProvider;
+	return c.json(
+		{ status: ready ? "ready" : "not_ready", redis: redisOk, hasProvider },
+		ready ? 200 : 503,
+	);
+});
+
 // Prometheus metrics endpoint
 const metricsRoute = createRoute({
 	summary: "Prometheus metrics",
