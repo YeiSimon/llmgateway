@@ -423,8 +423,14 @@ export const userOrganization = pgTable(
 		organizationId: text()
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
+		// 5-tier RBAC — ordered from most to least privileged:
+		//   owner        → full org control, billing
+		//   admin        → all resources, no billing/ownership transfer
+		//   team_manager → manage keys/projects within their teams
+		//   developer    → manage their own keys only
+		//   viewer       → read-only across the org
 		role: text({
-			enum: ["owner", "admin", "developer"],
+			enum: ["owner", "admin", "team_manager", "developer", "viewer"],
 		})
 			.notNull()
 			.default("owner"),
@@ -2504,7 +2510,7 @@ export const ssoConfig = pgTable("sso_config", {
 	enabled: boolean().notNull().default(true),
 	enforced: boolean().notNull().default(false),
 	defaultRole: text({
-		enum: ["owner", "admin", "developer"],
+		enum: ["owner", "admin", "team_manager", "developer", "viewer"],
 	})
 		.notNull()
 		.default("developer"),

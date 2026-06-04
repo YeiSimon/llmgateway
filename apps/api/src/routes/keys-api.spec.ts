@@ -5,6 +5,9 @@ import { createTestUser, deleteAll } from "@/testing.js";
 
 import { db, eq, tables } from "@llmgateway/db";
 
+// ── IAM plan-gating unit tests (pure function, no DB needed) ─────────────────
+import { assertPlanForIamRule } from "./keys-api.js";
+
 function getActivePeriodStartedAt() {
 	const oneHourInMs = 60 * 60 * 1000;
 	return new Date(Date.now() - oneHourInMs);
@@ -405,6 +408,56 @@ describe("keys route", () => {
 		expect(JSON.stringify(json)).toContain(
 			"Usage limit must be a non-negative number",
 		);
+	});
+
+	test("IAM rule: blocked on free plan", async () => {
+		// The test org defaults to no plan (free). Attempting to create an IAM rule
+		// via the helper that checks the plan directly should throw.
+		expect(() => assertPlanForIamRule("allow_models", "free")).toThrow(
+			/Pro or Enterprise/,
+		);
+		expect(() => assertPlanForIamRule("allow_ip_cidrs", "free")).toThrow(
+			/Pro or Enterprise/,
+		);
+	});
+
+	test("IAM rule: IP CIDR blocked on pro plan", () => {
+		expect(() => assertPlanForIamRule("allow_ip_cidrs", "pro")).toThrow(
+			/Enterprise/,
+		);
+		expect(() => assertPlanForIamRule("deny_ip_cidrs", "pro")).toThrow(
+			/Enterprise/,
+		);
+	});
+
+	test("IAM rule: all types allowed on enterprise plan", () => {
+		const allTypes = [
+			"allow_models",
+			"deny_models",
+			"allow_pricing",
+			"deny_pricing",
+			"allow_providers",
+			"deny_providers",
+			"allow_ip_cidrs",
+			"deny_ip_cidrs",
+		] as const;
+		for (const t of allTypes) {
+			expect(() => assertPlanForIamRule(t, "enterprise")).not.toThrow();
+		}
+	});
+
+	test("IAM rule: model and provider rules allowed on pro plan", () => {
+		const proTypes = [
+			"allow_models",
+			"deny_models",
+			"allow_pricing",
+			"deny_pricing",
+			"allow_providers",
+			"deny_providers",
+		] as const;
+		for (const t of proTypes) {
+			expect(() => assertPlanForIamRule(t, "pro")).not.toThrow();
+		}
 	});
 
 	test("POST /keys/api should enforce API key limit of 20", async () => {

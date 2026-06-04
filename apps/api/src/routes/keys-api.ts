@@ -8,6 +8,7 @@ import { getUserProjectIds } from "@/utils/authorization.js";
 
 import { logAuditEvent } from "@llmgateway/audit";
 import {
+	and,
 	apiKeyPeriodDurationMaxValues,
 	apiKeyPeriodDurationUnits,
 	db,
@@ -413,13 +414,91 @@ export function isIpCidrRuleType(
 	return ruleType === "allow_ip_cidrs" || ruleType === "deny_ip_cidrs";
 }
 
+// IAM rule plan requirements:
+//   free        → no IAM rules allowed
+//   pro         → allow_models, deny_models, allow_pricing, deny_pricing
+//   enterprise  → all rule types including provider rules and IP CIDRs
+const PROVIDER_RULE_TYPES = new Set([
+	"allow_providers",
+	"deny_providers",
+] as const);
+
+const IP_CIDR_RULE_TYPES = new Set([
+	"allow_ip_cidrs",
+	"deny_ip_cidrs",
+] as const);
+
+// Max active IAM rules per API key by plan
+const IAM_RULE_LIMITS: Record<string, number> = {
+	free: 0,
+	pro: 5,
+	enterprise: Infinity,
+};
+
+export function assertPlanForIamRule(
+	ruleType: z.infer<typeof iamRuleTypeEnum> | undefined,
+	plan: string | null | undefined,
+): void {
+	if (!ruleType) {
+		return;
+	}
+	const effectivePlan = plan ?? "free";
+
+	if (effectivePlan === "free") {
+		throw new HTTPException(403, {
+			message: "IAM rules require a Pro or Enterprise plan",
+		});
+	}
+
+	if (
+		IP_CIDR_RULE_TYPES.has(ruleType as "allow_ip_cidrs" | "deny_ip_cidrs") &&
+		effectivePlan !== "enterprise"
+	) {
+		throw new HTTPException(403, {
+			message: "IP address IAM rules require an Enterprise plan",
+		});
+	}
+
+	if (
+		PROVIDER_RULE_TYPES.has(ruleType as "allow_providers" | "deny_providers") &&
+		effectivePlan === "free"
+	) {
+		throw new HTTPException(403, {
+			message: "Provider IAM rules require a Pro or Enterprise plan",
+		});
+	}
+}
+
+/** @deprecated Use assertPlanForIamRule */
 export function assertEnterpriseForIpCidrRule(
 	ruleType: z.infer<typeof iamRuleTypeEnum> | undefined,
 	plan: string | null | undefined,
 ): void {
-	if (isIpCidrRuleType(ruleType) && plan !== "enterprise") {
+	assertPlanForIamRule(ruleType, plan);
+}
+
+export async function assertIamRuleCountLimit(
+	apiKeyId: string,
+	plan: string | null | undefined,
+): Promise<void> {
+	const limit = IAM_RULE_LIMITS[plan ?? "free"] ?? 0;
+	if (limit === Infinity) {
+		return;
+	}
+
+	const existing = await db
+		.select({ id: tables.apiKeyIamRule.id })
+		.from(tables.apiKeyIamRule)
+		.where(
+			and(
+				eq(tables.apiKeyIamRule.apiKeyId, apiKeyId),
+				eq(tables.apiKeyIamRule.status, "active"),
+			),
+		);
+
+	if (existing.length >= limit) {
 		throw new HTTPException(403, {
-			message: "IP address IAM rules require an enterprise plan",
+			message: `Your ${plan ?? "free"} plan allows a maximum of ${limit} active IAM rule${limit === 1 ? "" : "s"} per API key. Upgrade to add more.`,
 		});
 	}
 }
@@ -651,7 +730,13 @@ const list = createRoute({
 								plan: z.enum(["free", "pro", "enterprise"]),
 							})
 							.optional(),
-						userRole: z.enum(["owner", "admin", "developer"]),
+						userRole: z.enum([
+							"owner",
+							"admin",
+							"team_manager",
+							"developer",
+							"viewer",
+						]),
 					}),
 				},
 			},
@@ -705,7 +790,8 @@ keysApi.openapi(list, async (c) => {
 	}
 
 	// Determine user's role for the relevant organization
-	let userRole: "owner" | "admin" | "developer" = "developer";
+	let userRole: "owner" | "admin" | "team_manager" | "developer" | "viewer" =
+		"developer";
 	if (projectId) {
 		const project = await db.query.project.findFirst({
 			where: {
@@ -720,7 +806,12 @@ keysApi.openapi(list, async (c) => {
 				(org) => org.organizationId === project.organizationId,
 			);
 			if (userOrg) {
-				userRole = userOrg.role as "owner" | "admin" | "developer";
+				userRole = userOrg.role as
+					| "owner"
+					| "admin"
+					| "team_manager"
+					| "developer"
+					| "viewer";
 			}
 		}
 	}
@@ -907,11 +998,25 @@ keysApi.openapi(deleteKey, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
-	// Developers can only delete their own API keys
-	// Owners and admins can delete any API key
-	if (userRole === "developer" && apiKey.createdBy !== user.id) {
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to delete API keys",
+		});
+	}
+
+	// Developers and team managers can only delete their own API keys
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		apiKey.createdBy !== user.id
+	) {
 		throw new HTTPException(403, {
 			message: "You don't have permission to delete this API key",
 		});
@@ -1068,11 +1173,24 @@ keysApi.openapi(updateStatus, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
-	// Developers can only modify their own API keys
-	// Owners and admins can modify any API key
-	if (userRole === "developer" && apiKey.createdBy !== user.id) {
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to modify API keys",
+		});
+	}
+
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		apiKey.createdBy !== user.id
+	) {
 		throw new HTTPException(403, {
 			message: "You don't have permission to modify this API key",
 		});
@@ -1233,11 +1351,24 @@ keysApi.openapi(updateUsageLimit, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
-	// Developers can only modify their own API keys
-	// Owners and admins can modify any API key
-	if (userRole === "developer" && apiKey.createdBy !== user.id) {
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to modify API keys",
+		});
+	}
+
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		apiKey.createdBy !== user.id
+	) {
 		throw new HTTPException(403, {
 			message: "You don't have permission to modify this API key",
 		});
@@ -1387,20 +1518,34 @@ keysApi.openapi(createIamRule, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
-	// Developers can only manage IAM rules for their own API keys
-	// Owners and admins can manage IAM rules for any API key
-	if (userRole === "developer" && apiKey.createdBy !== user.id) {
+	// Viewers can never create IAM rules
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to manage IAM rules",
+		});
+	}
+
+	// Developers and team_managers can only manage IAM rules for their own API keys
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		apiKey.createdBy !== user.id
+	) {
 		throw new HTTPException(403, {
 			message: "You don't have permission to manage IAM rules for this API key",
 		});
 	}
 
-	assertEnterpriseForIpCidrRule(
-		ruleData.ruleType,
-		apiKey.project.organization?.plan,
-	);
+	const plan = apiKey.project.organization?.plan;
+	assertPlanForIamRule(ruleData.ruleType, plan);
+	await assertIamRuleCountLimit(id, plan);
 
 	// Create the IAM rule
 	const [rule] = await db
@@ -1627,11 +1772,24 @@ keysApi.openapi(updateIamRule, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
-	// Developers can only manage IAM rules for their own API keys
-	// Owners and admins can manage IAM rules for any API key
-	if (userRole === "developer" && apiKey.createdBy !== user.id) {
+	if (userRole === "viewer") {
+		throw new HTTPException(403, {
+			message: "Viewers do not have permission to manage IAM rules",
+		});
+	}
+
+	if (
+		(userRole === "developer" || userRole === "team_manager") &&
+		apiKey.createdBy !== user.id
+	) {
 		throw new HTTPException(403, {
 			message: "You don't have permission to manage IAM rules for this API key",
 		});
@@ -1647,7 +1805,7 @@ keysApi.openapi(updateIamRule, async (c) => {
 	});
 
 	// Re-validate using the effective ruleType + ruleValue after merging
-	// with the existing rule, so partial updates can't bypass CIDR checks.
+	// with the existing rule, so partial updates can't bypass plan checks.
 	if (existingRule && (updateData.ruleType || updateData.ruleValue)) {
 		validateIamRuleInput({
 			ruleType: updateData.ruleType ?? existingRule.ruleType,
@@ -1656,10 +1814,7 @@ keysApi.openapi(updateIamRule, async (c) => {
 	}
 
 	const effectiveRuleType = updateData.ruleType ?? existingRule?.ruleType;
-	assertEnterpriseForIpCidrRule(
-		effectiveRuleType,
-		apiKey.project.organization?.plan,
-	);
+	assertPlanForIamRule(effectiveRuleType, apiKey.project.organization?.plan);
 
 	// Update the IAM rule
 	const [updatedRule] = await db
@@ -1791,7 +1946,13 @@ keysApi.openapi(deleteIamRule, async (c) => {
 	// Check user role and permissions
 	const projectOrgId = apiKey.project.organizationId;
 	const userOrg = userOrgs.find((org) => org.organizationId === projectOrgId);
-	const userRole = userOrg?.role as "owner" | "admin" | "developer" | undefined;
+	const userRole = userOrg?.role as
+		| "owner"
+		| "admin"
+		| "team_manager"
+		| "developer"
+		| "viewer"
+		| undefined;
 
 	// Developers can only manage IAM rules for their own API keys
 	// Owners and admins can manage IAM rules for any API key

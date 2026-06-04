@@ -9,7 +9,13 @@ import type { ServerTypes } from "@/vars.js";
 
 export const team = new OpenAPIHono<ServerTypes>();
 
-const roleSchema = z.enum(["owner", "admin", "developer"]);
+const roleSchema = z.enum([
+	"owner",
+	"admin",
+	"team_manager",
+	"developer",
+	"viewer",
+]);
 
 const teamMemberSchema = z.object({
 	id: z.string(),
