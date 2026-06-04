@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 
-import { apiAuth as auth } from "@/auth/config.js";
+import { apiAuth as auth, auditSessionIpBinding } from "@/auth/config.js";
 
 import { activity } from "./activity.js";
 import admin from "./admin.js";
@@ -43,6 +43,12 @@ routes.use("/*", async (c, next) => {
 
 	c.set("user", session.user);
 	c.set("session", session.session);
+
+	await auditSessionIpBinding({
+		headers: c.req.raw.headers,
+		session: session.session,
+		userId: session.user.id,
+	});
 
 	return await next();
 });

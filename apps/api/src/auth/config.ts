@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 import { passkey } from "@better-auth/passkey";
 import { instrumentBetterAuth } from "@kubiks/otel-better-auth";
 import { betterAuth } from "better-auth";
@@ -22,6 +24,9 @@ const originUrls =
 	process.env.ORIGIN_URLS ??
 	"http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:4002,http://localhost:3006";
 const isHosted = process.env.HOSTED === "true";
+const sessionIpBindingMode = process.env.SESSION_IP_BINDING_MODE ?? "audit";
+const sessionIpBindingAuditTtlSeconds =
+	Number(process.env.SESSION_IP_BINDING_AUDIT_TTL_SECONDS) || 60 * 60;
 
 function resolveCallbackBaseUrl(request?: Request): string {
 	const originHeader =
@@ -52,6 +57,118 @@ redisClient.on("error", (err: unknown) =>
 		err instanceof Error ? err : new Error(String(err)),
 	),
 );
+
+function normalizeIpAddress(value: string | null | undefined): string | null {
+	const trimmed = value?.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const withoutZone = trimmed.replace(/%.+$/, "");
+	const bracketedIpv6 = withoutZone.match(/^\[([^\]]+)\](?::\d+)?$/);
+	const unwrapped = bracketedIpv6?.[1] ?? withoutZone;
+	const colonCount = (unwrapped.match(/:/g) ?? []).length;
+	const candidate =
+		isIP(unwrapped) || colonCount > 1
+			? unwrapped.replace(/^::ffff:/i, "")
+			: unwrapped.replace(/:\d+$/, "").replace(/^::ffff:/i, "");
+
+	if (!isIP(candidate)) {
+		return null;
+	}
+
+	return candidate.toLowerCase();
+}
+
+function extractClientIp(headers: Headers): string | null {
+	const forwardedFor = headers.get("x-forwarded-for");
+	const forwardedIp = forwardedFor?.split(",")[0];
+
+	return (
+		normalizeIpAddress(headers.get("cf-connecting-ip")) ??
+		normalizeIpAddress(headers.get("true-client-ip")) ??
+		normalizeIpAddress(forwardedIp) ??
+		normalizeIpAddress(headers.get("x-real-ip")) ??
+		normalizeIpAddress(headers.get("x-client-ip"))
+	);
+}
+
+async function shouldLogSessionIpMismatch(
+	sessionId: string,
+	boundIp: string,
+	currentIp: string,
+): Promise<boolean> {
+	const key = `session_ip_binding_audit:${sessionId}:${boundIp}:${currentIp}`;
+
+	try {
+		const result = await redisClient.set(
+			key,
+			"1",
+			"EX",
+			sessionIpBindingAuditTtlSeconds,
+			"NX",
+		);
+		return result === "OK";
+	} catch (error) {
+		logger.error(
+			"Session IP binding audit throttle failed",
+			error instanceof Error ? error : new Error(String(error)),
+			{ sessionId },
+		);
+		return true;
+	}
+}
+
+export async function auditSessionIpBinding(args: {
+	headers: Headers;
+	session: { id: string; ipAddress?: string | null };
+	userId: string;
+}): Promise<void> {
+	if (sessionIpBindingMode === "off") {
+		return;
+	}
+
+	const currentIp = extractClientIp(args.headers);
+	if (!currentIp) {
+		return;
+	}
+
+	const boundIp = normalizeIpAddress(args.session.ipAddress);
+
+	if (!boundIp) {
+		await db
+			.update(tables.session)
+			.set({ ipAddress: currentIp })
+			.where(eq(tables.session.id, args.session.id));
+
+		logger.info("Session IP binding initialized", {
+			sessionId: args.session.id,
+			userId: args.userId,
+			ipAddress: currentIp,
+			mode: sessionIpBindingMode,
+		});
+		return;
+	}
+
+	if (boundIp === currentIp) {
+		return;
+	}
+
+	if (
+		!(await shouldLogSessionIpMismatch(args.session.id, boundIp, currentIp))
+	) {
+		return;
+	}
+
+	logger.warn("Session IP binding mismatch detected", {
+		sessionId: args.session.id,
+		userId: args.userId,
+		boundIp,
+		currentIp,
+		mode: sessionIpBindingMode,
+		action: "audit",
+	});
+}
 
 export interface RateLimitConfig {
 	keyPrefix: string;

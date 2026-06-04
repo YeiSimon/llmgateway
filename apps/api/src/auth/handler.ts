@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 
-import { apiAuth } from "./config.js";
+import { apiAuth, auditSessionIpBinding } from "./config.js";
 
 import type { ServerTypes } from "@/vars.js";
 
@@ -15,6 +15,12 @@ authHandler.use("*", async (c, next) => {
 		c.set("session", null);
 		return await next();
 	}
+
+	await auditSessionIpBinding({
+		headers: c.req.raw.headers,
+		session: session.session,
+		userId: session.user.id,
+	});
 
 	c.set("user", session.user);
 	c.set("session", session.session);
