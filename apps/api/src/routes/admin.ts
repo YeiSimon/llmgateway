@@ -9932,4 +9932,163 @@ admin.openapi(patchSettingsRoute, async (c) => {
 	return c.json({ ok: true, key });
 });
 
+// ─── Guardrails (read-only, admin view) ─────────────────────────────────────
+
+const getAdminGuardrailsRoute = createRoute({
+	summary: "Get guardrail config and rules for an organization",
+	operationId: "getAdminGuardrails",
+	method: "get",
+	path: "/organizations/{orgId}/guardrails",
+	request: {
+		params: z.object({ orgId: z.string() }),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						config: z
+							.object({
+								id: z.string(),
+								organizationId: z.string(),
+								enabled: z.boolean(),
+								piiAction: z.string().nullable(),
+								createdAt: z.string(),
+								updatedAt: z.string(),
+							})
+							.nullable(),
+						rules: z.array(
+							z.object({
+								id: z.string(),
+								name: z.string(),
+								enabled: z.boolean(),
+								type: z.string(),
+								action: z.string(),
+								priority: z.number(),
+								createdAt: z.string(),
+								updatedAt: z.string(),
+							}),
+						),
+					}),
+				},
+			},
+			description: "Guardrail config and rules for the organization",
+		},
+	},
+});
+
+admin.openapi(getAdminGuardrailsRoute, async (c) => {
+	const { orgId } = c.req.param();
+
+	const [config, rules] = await Promise.all([
+		db.query.guardrailConfig.findFirst({
+			where: { organizationId: { eq: orgId } },
+		}),
+		db.query.guardrailRule.findMany({
+			where: { organizationId: { eq: orgId } },
+		}),
+	]);
+
+	return c.json({
+		config: config
+			? {
+					id: config.id,
+					organizationId: config.organizationId,
+					enabled: config.enabled,
+					piiAction: config.piiAction ?? null,
+					createdAt: config.createdAt.toISOString(),
+					updatedAt: config.updatedAt.toISOString(),
+				}
+			: null,
+		rules: rules.map((r) => ({
+			id: r.id,
+			name: r.name,
+			enabled: r.enabled,
+			type: r.type,
+			action: r.action,
+			priority: r.priority,
+			createdAt: r.createdAt.toISOString(),
+			updatedAt: r.updatedAt.toISOString(),
+		})),
+	});
+});
+
+const getAdminViolationsRoute = createRoute({
+	summary: "List guardrail violations for an organization",
+	operationId: "getAdminViolations",
+	method: "get",
+	path: "/organizations/{orgId}/violations",
+	request: {
+		params: z.object({ orgId: z.string() }),
+		query: z.object({
+			limit: z
+				.string()
+				.optional()
+				.transform((v) => (v ? parseInt(v, 10) : 50))
+				.pipe(z.number().int().min(1).max(100)),
+			cursor: z.string().optional(),
+		}),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						violations: z.array(
+							z.object({
+								id: z.string(),
+								createdAt: z.string(),
+								ruleId: z.string(),
+								ruleName: z.string(),
+								category: z.string(),
+								actionTaken: z.string(),
+								matchedPattern: z.string().nullable(),
+								logId: z.string().nullable(),
+								apiKeyId: z.string().nullable(),
+								model: z.string().nullable(),
+							}),
+						),
+						hasMore: z.boolean(),
+						nextCursor: z.string().nullable(),
+					}),
+				},
+			},
+			description: "Guardrail violations for the organization",
+		},
+	},
+});
+
+admin.openapi(getAdminViolationsRoute, async (c) => {
+	const { orgId } = c.req.param();
+	const { limit, cursor } = c.req.valid("query");
+
+	const rows = await db.query.guardrailViolation.findMany({
+		where: {
+			organizationId: { eq: orgId },
+			...(cursor ? { id: { lt: cursor } } : {}),
+		},
+		limit: limit + 1,
+	});
+
+	const hasMore = rows.length > limit;
+	const violations = hasMore ? rows.slice(0, limit) : rows;
+
+	return c.json({
+		violations: violations.map((v) => ({
+			id: v.id,
+			createdAt: v.createdAt.toISOString(),
+			ruleId: v.ruleId,
+			ruleName: v.ruleName,
+			category: v.category,
+			actionTaken: v.actionTaken,
+			matchedPattern: v.matchedPattern ?? null,
+			logId: v.logId ?? null,
+			apiKeyId: v.apiKeyId ?? null,
+			model: v.model ?? null,
+		})),
+		hasMore,
+		nextCursor: hasMore ? violations[violations.length - 1].id : null,
+	});
+});
+
 export default admin;

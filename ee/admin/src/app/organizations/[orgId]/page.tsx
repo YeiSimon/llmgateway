@@ -268,6 +268,14 @@ export default async function OrganizationPage({
 							Manage Rate Limits
 						</Link>
 					</Button>
+					<Button variant="outline" size="sm" asChild>
+						<Link href={`/organizations/${orgId}/guardrails`}>Guardrails</Link>
+					</Button>
+					<Button variant="outline" size="sm" asChild>
+						<Link href={`/organizations/${orgId}/security-events`}>
+							Security Events
+						</Link>
+					</Button>
 					<BlockOrgButton
 						orgId={orgId}
 						orgName={org.name}

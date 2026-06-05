@@ -5932,6 +5932,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Upsert a system setting
+         * @description Upsert a key/value entry in system_settings and publish the change to all gateway instances via Redis pub/sub.
+         */
+        patch: operations["patchAdminSettings"];
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/guardrails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get guardrail config and rules for an organization */
+        get: operations["getAdminGuardrails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/violations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List guardrail violations for an organization */
+        get: operations["getAdminViolations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/keys/api": {
         parameters: {
             query?: never;
@@ -5999,6 +6053,16 @@ export interface paths {
                                     /** @enum {string} */
                                     status: "active" | "inactive";
                                 }[];
+                                lineageId: string | null;
+                                rotationPeriodDays: number | null;
+                                rotatedFromId: string | null;
+                                gracePeriodEndsAt: string | null;
+                                inactivityTimeoutDays: number | null;
+                                disabledReason: string | null;
+                                lastRotationAt: string | null;
+                                expiresAt: string | null;
+                                lastExpiryWarningSentAt: string | null;
+                                costCenter: string | null;
                                 maskedToken: string;
                             }[];
                             planLimits?: {
@@ -6008,7 +6072,7 @@ export interface paths {
                                 plan: "free" | "pro" | "enterprise";
                             };
                             /** @enum {string} */
-                            userRole: "owner" | "admin" | "developer";
+                            userRole: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                         };
                     };
                 };
@@ -6084,6 +6148,16 @@ export interface paths {
                                     /** @enum {string} */
                                     status: "active" | "inactive";
                                 }[];
+                                lineageId: string | null;
+                                rotationPeriodDays: number | null;
+                                rotatedFromId: string | null;
+                                gracePeriodEndsAt: string | null;
+                                inactivityTimeoutDays: number | null;
+                                disabledReason: string | null;
+                                lastRotationAt: string | null;
+                                expiresAt: string | null;
+                                lastExpiryWarningSentAt: string | null;
+                                costCenter: string | null;
                                 token: string;
                             };
                         };
@@ -6222,6 +6296,16 @@ export interface paths {
                                     /** @enum {string} */
                                     status: "active" | "inactive";
                                 }[];
+                                lineageId: string | null;
+                                rotationPeriodDays: number | null;
+                                rotatedFromId: string | null;
+                                gracePeriodEndsAt: string | null;
+                                inactivityTimeoutDays: number | null;
+                                disabledReason: string | null;
+                                lastRotationAt: string | null;
+                                expiresAt: string | null;
+                                lastExpiryWarningSentAt: string | null;
+                                costCenter: string | null;
                                 maskedToken: string;
                             };
                         };
@@ -6336,6 +6420,16 @@ export interface paths {
                                     /** @enum {string} */
                                     status: "active" | "inactive";
                                 }[];
+                                lineageId: string | null;
+                                rotationPeriodDays: number | null;
+                                rotatedFromId: string | null;
+                                gracePeriodEndsAt: string | null;
+                                inactivityTimeoutDays: number | null;
+                                disabledReason: string | null;
+                                lastRotationAt: string | null;
+                                expiresAt: string | null;
+                                lastExpiryWarningSentAt: string | null;
+                                costCenter: string | null;
                                 maskedToken: string;
                             };
                         };
@@ -6589,6 +6683,109 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/keys/projects/:projectId/keys/:keyId/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    projectId: string;
+                    keyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @default 7 */
+                        gracePeriodDays?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Key rotated successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            newKey: {
+                                id: string;
+                                createdAt: string;
+                                updatedAt: string;
+                                token: string;
+                                description: string;
+                                /** @enum {string|null} */
+                                status: "active" | "inactive" | "deleted" | null;
+                                usageLimit: string | null;
+                                usage: string;
+                                periodUsageLimit: string | null;
+                                periodUsageDurationValue: number | null;
+                                /** @enum {string|null} */
+                                periodUsageDurationUnit: "hour" | "day" | "week" | "month" | null;
+                                currentPeriodUsage: string;
+                                currentPeriodStartedAt: string | null;
+                                currentPeriodResetAt: string | null;
+                                projectId: string;
+                                createdBy: string;
+                                creator?: {
+                                    id: string;
+                                    name: string | null;
+                                    email: string;
+                                } | null;
+                                iamRules?: {
+                                    id: string;
+                                    createdAt: string;
+                                    updatedAt: string;
+                                    /** @enum {string} */
+                                    ruleType: "allow_models" | "deny_models" | "allow_pricing" | "deny_pricing" | "allow_providers" | "deny_providers" | "allow_ip_cidrs" | "deny_ip_cidrs";
+                                    ruleValue: {
+                                        models?: string[];
+                                        providers?: string[];
+                                        /** @enum {string} */
+                                        pricingType?: "free" | "paid";
+                                        maxInputPrice?: number;
+                                        maxOutputPrice?: number;
+                                        ipCidrs?: string[];
+                                    };
+                                    /** @enum {string} */
+                                    status: "active" | "inactive";
+                                }[];
+                                lineageId: string | null;
+                                rotationPeriodDays: number | null;
+                                rotatedFromId: string | null;
+                                gracePeriodEndsAt: string | null;
+                                inactivityTimeoutDays: number | null;
+                                disabledReason: string | null;
+                                lastRotationAt: string | null;
+                                expiresAt: string | null;
+                                lastExpiryWarningSentAt: string | null;
+                                costCenter: string | null;
+                            };
+                            oldKey: {
+                                id: string;
+                                gracePeriodEndsAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/keys/provider": {
@@ -8410,7 +8607,7 @@ export interface paths {
                                 id: string;
                                 userId: string;
                                 /** @enum {string} */
-                                role: "owner" | "admin" | "developer";
+                                role: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                                 createdAt: string;
                                 user: {
                                     id: string;
@@ -8439,7 +8636,7 @@ export interface paths {
                         /** Format: email */
                         email: string;
                         /** @enum {string} */
-                        role: "owner" | "admin" | "developer";
+                        role: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                     };
                 };
             };
@@ -8456,7 +8653,7 @@ export interface paths {
                                 id: string;
                                 userId: string;
                                 /** @enum {string} */
-                                role: "owner" | "admin" | "developer";
+                                role: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                                 createdAt: string;
                                 user: {
                                     id: string;
@@ -8526,7 +8723,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        role: "owner" | "admin" | "developer";
+                        role: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                     };
                 };
             };
@@ -8543,7 +8740,7 @@ export interface paths {
                                 id: string;
                                 userId: string;
                                 /** @enum {string} */
-                                role: "owner" | "admin" | "developer";
+                                role: "owner" | "admin" | "team_manager" | "developer" | "viewer";
                                 createdAt: string;
                                 user: {
                                     id: string;
@@ -11486,6 +11683,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/circuit-breaker/{key}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a circuit breaker
+         * @description Force a circuit breaker back to closed state. Use when a provider has recovered but the breaker has not self-healed yet.
+         */
+        post: operations["resetCircuitBreaker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/{videoId}": {
         parameters: {
             query?: never;
@@ -11533,6 +11750,1093 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Organization analytics summary for a time range */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @description Number of requests */
+                                requestCount: number;
+                                /** @description Number of errors */
+                                errorCount: number;
+                                /** @description Number of cached responses */
+                                cacheCount: number;
+                                /** @description Total input tokens */
+                                inputTokens: number;
+                                /** @description Total output tokens */
+                                outputTokens: number;
+                                /** @description Total cached tokens */
+                                cachedTokens: number;
+                                /** @description Total reasoning tokens */
+                                reasoningTokens: number;
+                                /** @description Total cost in USD */
+                                costUsd: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description Average time to first token in milliseconds */
+                                avgTimeToFirstTokenMs: number | null;
+                            };
+                            /** @enum {string} */
+                            source: "clickhouse" | "postgres";
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/cost-breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                    from: string;
+                    to: string;
+                    groupBy?: "model" | "provider" | "project" | "source";
+                    resolution?: "hourly" | "daily";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cost breakdown data, grouped by the requested dimension and time resolution */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @description Number of requests */
+                                requestCount: number;
+                                /** @description Number of errors */
+                                errorCount: number;
+                                /** @description Number of cached responses */
+                                cacheCount: number;
+                                /** @description Total input tokens */
+                                inputTokens: number;
+                                /** @description Total output tokens */
+                                outputTokens: number;
+                                /** @description Total cached tokens */
+                                cachedTokens: number;
+                                /** @description Total reasoning tokens */
+                                reasoningTokens: number;
+                                /** @description Total cost in USD */
+                                costUsd: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description Average time to first token in milliseconds */
+                                avgTimeToFirstTokenMs: number | null;
+                                /** @description Time bucket (ISO string) */
+                                bucket: string;
+                                /** @description Value of the groupBy dimension */
+                                groupValue: string | null;
+                            }[];
+                            /** @enum {string} */
+                            source: "clickhouse" | "postgres";
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/provider-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Provider health metrics scoped to an organization */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @description Provider ID */
+                                provider: string;
+                                /** @description Number of requests */
+                                requestCount: number;
+                                /** @description Number of failed requests */
+                                errorCount: number;
+                                /** @description Number of rate-limited requests */
+                                throttledCount: number;
+                                /** @description Error rate percentage */
+                                errorRate: number;
+                                /** @description Throttle rate percentage */
+                                throttleRate: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description P95 end-to-end latency in milliseconds */
+                                p95LatencyMs: number | null;
+                                /** @description Most recent request timestamp */
+                                lastSeenAt: string | null;
+                            }[];
+                            /** @enum {string} */
+                            source: "clickhouse" | "postgres";
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgId}/log-forwarders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of log forwarders for the organization. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            forwarders: {
+                                id: string;
+                                organizationId: string;
+                                name: string;
+                                enabled: boolean;
+                                /** @enum {string} */
+                                forwarderType: "udp_syslog" | "tcp_syslog" | "kafka" | "webhook";
+                                logTypes: ("gateway" | "audit" | "access")[];
+                                sentCount: number;
+                                errorCount: number;
+                                lastSentAt: string | null;
+                                lastError: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** @default true */
+                        enabled?: boolean;
+                        /** @enum {string} */
+                        forwarderType: "udp_syslog" | "tcp_syslog" | "kafka" | "webhook";
+                        logTypes: ("gateway" | "audit" | "access")[];
+                        config: {
+                            host?: string;
+                            port?: number;
+                            brokers?: string[];
+                            topic?: string;
+                            saslUsername?: string;
+                            saslPassword?: string;
+                            /** Format: uri */
+                            url?: string;
+                            secret?: string;
+                            headers?: {
+                                [key: string]: string;
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Log forwarder created successfully. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            forwarder: {
+                                id: string;
+                                organizationId: string;
+                                name: string;
+                                enabled: boolean;
+                                /** @enum {string} */
+                                forwarderType: "udp_syslog" | "tcp_syslog" | "kafka" | "webhook";
+                                logTypes: ("gateway" | "audit" | "access")[];
+                                sentCount: number;
+                                errorCount: number;
+                                lastSentAt: string | null;
+                                lastError: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgId}/log-forwarders/:id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Log forwarder deleted successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** @default true */
+                        enabled?: boolean;
+                        /** @enum {string} */
+                        forwarderType?: "udp_syslog" | "tcp_syslog" | "kafka" | "webhook";
+                        logTypes?: ("gateway" | "audit" | "access")[];
+                        config?: {
+                            host?: string;
+                            port?: number;
+                            brokers?: string[];
+                            topic?: string;
+                            saslUsername?: string;
+                            saslPassword?: string;
+                            /** Format: uri */
+                            url?: string;
+                            secret?: string;
+                            headers?: {
+                                [key: string]: string;
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Log forwarder updated successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            forwarder: {
+                                id: string;
+                                organizationId: string;
+                                name: string;
+                                enabled: boolean;
+                                /** @enum {string} */
+                                forwarderType: "udp_syslog" | "tcp_syslog" | "kafka" | "webhook";
+                                logTypes: ("gateway" | "audit" | "access")[];
+                                sentCount: number;
+                                errorCount: number;
+                                lastSentAt: string | null;
+                                lastError: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/orgs/{orgId}/log-forwarders/:id/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Test event dispatched. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{orgId}/log-forwarders/:id/outbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dead-letter outbox items for this forwarder. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                forwarderId: string;
+                                payload?: unknown;
+                                lastError: string | null;
+                                attempts: number;
+                                nextRetryAt: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of rate limit rules for the organization. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rules: {
+                                id: string;
+                                createdAt: string;
+                                updatedAt: string;
+                                organizationId: string | null;
+                                /** @enum {string} */
+                                subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                                subjectId: string | null;
+                                windowSeconds: number;
+                                /** @enum {string} */
+                                metric: "requests" | "tokens";
+                                limit: number;
+                                provider: string | null;
+                                model: string | null;
+                                enabled: boolean;
+                                reason: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        organizationId: string;
+                        /** @enum {string} */
+                        subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                        subjectId?: string;
+                        windowSeconds: number;
+                        /** @enum {string} */
+                        metric?: "requests" | "tokens";
+                        limit: number;
+                        provider?: string;
+                        model?: string;
+                        enabled?: boolean;
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Rate limit rule created. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            createdAt: string;
+                            updatedAt: string;
+                            organizationId: string | null;
+                            /** @enum {string} */
+                            subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                            subjectId: string | null;
+                            windowSeconds: number;
+                            /** @enum {string} */
+                            metric: "requests" | "tokens";
+                            limit: number;
+                            provider: string | null;
+                            model: string | null;
+                            enabled: boolean;
+                            reason: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-limits/:id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Rate limit rule deleted. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        subjectKind?: "user" | "api_key" | "organization" | "provider" | "model";
+                        subjectId?: string | null;
+                        windowSeconds?: number;
+                        /** @enum {string} */
+                        metric?: "requests" | "tokens";
+                        limit?: number;
+                        provider?: string | null;
+                        model?: string | null;
+                        enabled?: boolean;
+                        reason?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Rate limit rule updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            createdAt: string;
+                            updatedAt: string;
+                            organizationId: string | null;
+                            /** @enum {string} */
+                            subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                            subjectId: string | null;
+                            windowSeconds: number;
+                            /** @enum {string} */
+                            metric: "requests" | "tokens";
+                            limit: number;
+                            provider: string | null;
+                            model: string | null;
+                            enabled: boolean;
+                            reason: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/rate-limits/budget-caps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of budget caps for the organization. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            caps: {
+                                id: string;
+                                createdAt: string;
+                                updatedAt: string;
+                                organizationId: string | null;
+                                /** @enum {string} */
+                                subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                                subjectId: string | null;
+                                /** @enum {string} */
+                                period: "daily" | "weekly" | "monthly";
+                                limit: string;
+                                enabled: boolean;
+                                reason: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        organizationId: string;
+                        /** @enum {string} */
+                        subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                        subjectId?: string;
+                        /** @enum {string} */
+                        period: "daily" | "weekly" | "monthly";
+                        limit: string;
+                        enabled?: boolean;
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Budget cap created. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            createdAt: string;
+                            updatedAt: string;
+                            organizationId: string | null;
+                            /** @enum {string} */
+                            subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                            subjectId: string | null;
+                            /** @enum {string} */
+                            period: "daily" | "weekly" | "monthly";
+                            limit: string;
+                            enabled: boolean;
+                            reason: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-limits/budget-caps/:id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Budget cap deleted. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        subjectKind?: "user" | "api_key" | "organization" | "provider" | "model";
+                        subjectId?: string | null;
+                        /** @enum {string} */
+                        period?: "daily" | "weekly" | "monthly";
+                        limit?: string;
+                        enabled?: boolean;
+                        reason?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Budget cap updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            createdAt: string;
+                            updatedAt: string;
+                            organizationId: string | null;
+                            /** @enum {string} */
+                            subjectKind: "user" | "api_key" | "organization" | "provider" | "model";
+                            subjectId: string | null;
+                            /** @enum {string} */
+                            period: "daily" | "weekly" | "monthly";
+                            limit: string;
+                            enabled: boolean;
+                            reason: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/orgs/:orgId/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SSO configuration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ssoConfig: {
+                                id: string;
+                                organizationId: string;
+                                /** @enum {string} */
+                                provider: "oidc" | "google" | "microsoft" | "okta" | "github";
+                                clientId: string;
+                                discoveryUrl: string | null;
+                                enabled: boolean;
+                                enforced: boolean;
+                                /** @enum {string} */
+                                defaultRole: "owner" | "admin" | "team_manager" | "developer" | "viewer";
+                                jitProvisioning: boolean;
+                                createdAt: string;
+                                updatedAt: string;
+                            } | null;
+                        };
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        provider: "oidc" | "google" | "microsoft" | "okta" | "github";
+                        clientId: string;
+                        clientSecret: string;
+                        /** Format: uri */
+                        discoveryUrl?: string;
+                        enabled?: boolean;
+                        enforced?: boolean;
+                        /** @enum {string} */
+                        defaultRole?: "owner" | "admin" | "team_manager" | "developer" | "viewer";
+                        jitProvisioning?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description SSO configuration saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ssoConfig: {
+                                id: string;
+                                organizationId: string;
+                                /** @enum {string} */
+                                provider: "oidc" | "google" | "microsoft" | "okta" | "github";
+                                clientId: string;
+                                discoveryUrl: string | null;
+                                enabled: boolean;
+                                enforced: boolean;
+                                /** @enum {string} */
+                                defaultRole: "owner" | "admin" | "team_manager" | "developer" | "viewer";
+                                jitProvisioning: boolean;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SSO configuration removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/:orgId/sso/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SSO connection test result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -11764,6 +13068,149 @@ export interface operations {
                                 totalTokens: number;
                             }[];
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    patchAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @example rate_limit_fail_mode */
+                    key: string;
+                    /** @example open */
+                    value?: unknown;
+                    /**
+                     * @default gateway
+                     * @enum {string}
+                     */
+                    category?: "gateway" | "security" | "audit" | "retention" | "limits";
+                };
+            };
+        };
+        responses: {
+            /** @description Setting upserted and published. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        key: string;
+                    };
+                };
+            };
+        };
+    };
+    getAdminGuardrails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guardrail config and rules for the organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        config: {
+                            id: string;
+                            organizationId: string;
+                            enabled: boolean;
+                            piiAction: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                        } | null;
+                        rules: {
+                            id: string;
+                            name: string;
+                            enabled: boolean;
+                            type: string;
+                            action: string;
+                            priority: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getAdminViolations: {
+        parameters: {
+            query?: {
+                limit?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guardrail violations for the organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        violations: {
+                            id: string;
+                            createdAt: string;
+                            ruleId: string;
+                            ruleName: string;
+                            category: string;
+                            actionTaken: string;
+                            matchedPattern: string | null;
+                            logId: string | null;
+                            apiKeyId: string | null;
+                            model: string | null;
+                        }[];
+                        hasMore: boolean;
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    resetCircuitBreaker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Circuit breaker reset successfully. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        key: string;
                     };
                 };
             };
