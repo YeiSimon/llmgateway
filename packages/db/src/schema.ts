@@ -508,7 +508,10 @@ export const apiKey = pgTable(
 		lastExpiryWarningSentAt: timestamp(),
 		// Stable identity that survives rotation — rate limit rules keyed by lineageId
 		// apply across all generations of a key without needing rule copy-forward.
-		lineageId: text().notNull().$defaultFn(shortid),
+		lineageId: text()
+			.notNull()
+			.default(sql`gen_random_uuid()`)
+			.$defaultFn(shortid),
 		costCenter: text(),
 	},
 	(table) => [

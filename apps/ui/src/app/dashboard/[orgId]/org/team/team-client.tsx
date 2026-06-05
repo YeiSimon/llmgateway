@@ -56,9 +56,9 @@ export function TeamClient() {
 	const removeMemberMutation = useRemoveTeamMember(organizationId);
 
 	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<"owner" | "admin" | "developer">(
-		"developer",
-	);
+	const [role, setRole] = useState<
+		"owner" | "admin" | "team_manager" | "developer" | "viewer"
+	>("developer");
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
 	const handleAddMember = async () => {
@@ -77,7 +77,7 @@ export function TeamClient() {
 					organizationId,
 				},
 			},
-			body: { email, role },
+			body: { email, role: role as "owner" | "admin" | "developer" },
 		});
 		toast({
 			title: "Success",
@@ -90,7 +90,7 @@ export function TeamClient() {
 
 	const handleUpdateRole = async (
 		memberId: string,
-		newRole: "owner" | "admin" | "developer",
+		newRole: "owner" | "admin" | "team_manager" | "developer" | "viewer",
 	) => {
 		await updateMemberMutation.mutateAsync({
 			params: {
@@ -168,16 +168,27 @@ export function TeamClient() {
 										<Select
 											value={role}
 											onValueChange={(value) =>
-												setRole(value as "owner" | "admin" | "developer")
+												setRole(
+													value as
+														| "owner"
+														| "admin"
+														| "team_manager"
+														| "developer"
+														| "viewer",
+												)
 											}
 										>
 											<SelectTrigger>
 												<SelectValue placeholder="Select a role" />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="developer">Developer</SelectItem>
-												<SelectItem value="admin">Admin</SelectItem>
 												<SelectItem value="owner">Owner</SelectItem>
+												<SelectItem value="admin">Admin</SelectItem>
+												<SelectItem value="team_manager">
+													Team Manager
+												</SelectItem>
+												<SelectItem value="developer">Developer</SelectItem>
+												<SelectItem value="viewer">Viewer</SelectItem>
 											</SelectContent>
 										</Select>
 									</div>
@@ -245,20 +256,29 @@ export function TeamClient() {
 														onValueChange={(value) =>
 															handleUpdateRole(
 																member.id,
-																value as "owner" | "admin" | "developer",
+																value as
+																	| "owner"
+																	| "admin"
+																	| "team_manager"
+																	| "developer"
+																	| "viewer",
 															)
 														}
 														disabled={updateMemberMutation.isPending}
 													>
-														<SelectTrigger className="w-[130px]">
+														<SelectTrigger className="w-[150px]">
 															<SelectValue />
 														</SelectTrigger>
 														<SelectContent>
+															<SelectItem value="owner">Owner</SelectItem>
+															<SelectItem value="admin">Admin</SelectItem>
+															<SelectItem value="team_manager">
+																Team Manager
+															</SelectItem>
 															<SelectItem value="developer">
 																Developer
 															</SelectItem>
-															<SelectItem value="admin">Admin</SelectItem>
-															<SelectItem value="owner">Owner</SelectItem>
+															<SelectItem value="viewer">Viewer</SelectItem>
 														</SelectContent>
 													</Select>
 												</TableCell>
