@@ -26,7 +26,9 @@
 		"setup": "pnpm build:core && docker compose down -v && docker compose up -d && sleep 5 && pnpm push-test && pnpm push-dev && pnpm seed",
 		"sync": "pnpm push-dev; pnpm push-test",
 		"test:e2e": "pnpm build:core && E2E_TEST=true vitest run -c vitest/vitest.e2e.config.mts --no-file-parallelism",
-		"test:unit": "pnpm build:core && vitest run --no-file-parallelism"
+		"test:unit": "pnpm build:core && vitest run --no-file-parallelism",
+		"test:web:ui": "playwright test tests/ui --project=chromium --workers=1",
+		"test:web:ui:headed": "playwright test tests/ui --project=chromium --workers=1 --headed"
 	},
 	"commitlint": {
 		"extends": "@steebchen/commitlint-config"
@@ -34,6 +36,7 @@
 	"prettier": "@steebchen/prettier-config",
 	"devDependencies": {
 		"@abinnovision/eslint-config-react": "3.1.1",
+		"@playwright/test": "^1.60.0",
 		"@semantic-release/exec": "^7.1.0",
 		"@semantic-release/npm": "^13.1.5",
 		"@steebchen/commitlint-config": "^1.7.0",
