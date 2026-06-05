@@ -25,3 +25,23 @@ services:
       - "6379:6379"
     environment:
       CI: ${CI}
+
+  clickhouse:
+    container_name: clickhouse
+    image: clickhouse/clickhouse-server:26.3-alpine
+    restart: always
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_USER: llmgateway
+      CLICKHOUSE_PASSWORD: llmgateway
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - ./packages/db/clickhouse/init.sh:/docker-entrypoint-initdb.d/init.sh
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://llmgateway:llmgateway@localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
