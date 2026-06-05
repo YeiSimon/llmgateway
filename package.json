@@ -28,6 +28,7 @@
 		"test:e2e": "pnpm build:core && E2E_TEST=true vitest run -c vitest/vitest.e2e.config.mts --no-file-parallelism",
 		"test:unit": "pnpm build:core && vitest run --no-file-parallelism",
 		"test:web:ui": "playwright test tests/ui --project=chromium --workers=1",
+		"test:web:ui:dashboard": "playwright test tests/ui/authenticated-dashboard-smoke.spec.ts --project=chromium --workers=1",
 		"test:web:ui:headed": "playwright test tests/ui --project=chromium --workers=1 --headed"
 	},
 	"commitlint": {
