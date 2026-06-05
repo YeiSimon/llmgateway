@@ -8,7 +8,7 @@ import {
 } from "@llmgateway/instrumentation";
 import { logger, toError } from "@llmgateway/logger";
 
-import { app } from "./app.js";
+import { adminApp, app } from "./app.js";
 import { setClickHouseWriter } from "./lib/logs.js";
 
 import type { ServerType } from "@hono/node-server";
@@ -16,6 +16,7 @@ import type { NodeSDK } from "@opentelemetry/sdk-node";
 import type { Server } from "node:http";
 
 const port = Number(process.env.PORT) || 4001;
+const adminPort = Number(process.env.ADMIN_PORT) || 4003;
 
 // GCP Load Balancer has a fixed 600s keepalive timeout. Node.js default is 5s.
 // If Node closes the connection first, the LB sends requests on stale connections → 502.
@@ -24,6 +25,7 @@ const keepAliveTimeoutS = Number(process.env.KEEP_ALIVE_TIMEOUT_S) || 620;
 
 let sdk: NodeSDK | null = null;
 let clickhouseWriter: ClickHouseWriter | null = null;
+let adminServer: ServerType | null = null;
 
 async function startServer() {
 	// Initialize tracing for gateway service
@@ -46,7 +48,17 @@ async function startServer() {
 		});
 	}
 
-	logger.info("Server starting", { port });
+	logger.info("Server starting", { port, adminPort });
+
+	// Admin server binds to localhost only — never reachable from the public internet.
+	// Set ADMIN_HOST=0.0.0.0 to expose it within a private cluster network.
+	const adminHost = process.env.ADMIN_HOST ?? "127.0.0.1";
+	adminServer = serve({
+		port: adminPort,
+		hostname: adminHost,
+		fetch: adminApp.fetch,
+	});
+	logger.info("Admin server started", { port: adminPort, host: adminHost });
 
 	return serve({
 		port,
@@ -110,7 +122,10 @@ const gracefulShutdown = async (signal: string, server: ServerType) => {
 
 	try {
 		logger.info("Closing HTTP server");
-		await closeServer(server);
+		await Promise.all([
+			closeServer(server),
+			adminServer ? closeServer(adminServer) : Promise.resolve(),
+		]);
 		logger.info("HTTP server closed");
 
 		logger.info("Closing database connection");

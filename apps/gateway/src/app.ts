@@ -336,32 +336,6 @@ app.get("/health/ready", async (c) => {
 	);
 });
 
-// Prometheus metrics endpoint
-const metricsRoute = createRoute({
-	summary: "Prometheus metrics",
-	description: "Prometheus metrics endpoint for scraping.",
-	operationId: "metrics",
-	method: "get",
-	path: "/metrics",
-	responses: {
-		200: {
-			content: {
-				"text/plain": {
-					schema: z.string(),
-				},
-			},
-			description: "Prometheus metrics in exposition format.",
-		},
-	},
-});
-
-app.openapi(metricsRoute, async (c) => {
-	const metrics = await getMetrics();
-	return c.text(metrics, 200, {
-		"Content-Type": getMetricsContentType(),
-	});
-});
-
 const v1 = new OpenAPIHono<ServerTypes>();
 
 v1.route("/chat", chat);
@@ -382,6 +356,37 @@ app.all("/mcp", mcpHandler);
 // This adds OAuth endpoints at /.well-known/oauth-authorization-server and /oauth/*
 registerMcpOAuthRoutes(app);
 
-app.doc("/json", config);
+// ── Admin app (served on ADMIN_PORT, never exposed publicly) ─────────────────
+// Routes: /metrics, /docs, /json, /admin/circuit-breaker/:key/reset
+// Bind to 127.0.0.1 by default so only in-cluster traffic reaches it.
+export const adminApp = new OpenAPIHono<ServerTypes>();
 
-app.get("/docs", swaggerUI({ url: "/json" }));
+adminApp.get("/metrics", async (c) => {
+	const metrics = await getMetrics();
+	return c.text(metrics, 200, {
+		"Content-Type": getMetricsContentType(),
+	});
+});
+
+adminApp.get("/api/health", async (c) => {
+	const checks = await Promise.allSettled([
+		redisClient.ping(),
+		db.query.providerKey.findFirst({
+			where: { status: { eq: "active" } },
+		}),
+	]);
+	return c.json({
+		postgres: { ok: checks[1].status === "fulfilled" },
+		redis: { ok: checks[0].status === "fulfilled" },
+	});
+});
+
+adminApp.post("/admin/circuit-breaker/:key/reset", async (c) => {
+	const key = c.req.param("key");
+	const { resetBreaker } = await import("./lib/circuit-breaker.js");
+	await resetBreaker(key);
+	return c.json({ ok: true, key });
+});
+
+adminApp.doc("/json", config);
+adminApp.get("/docs", swaggerUI({ url: "/json" }));
