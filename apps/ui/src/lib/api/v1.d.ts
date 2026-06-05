@@ -11722,6 +11722,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analytics/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Organization analytics summary for a time range */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @description Number of requests */
+                                requestCount: number;
+                                /** @description Number of errors */
+                                errorCount: number;
+                                /** @description Number of cached responses */
+                                cacheCount: number;
+                                /** @description Total input tokens */
+                                inputTokens: number;
+                                /** @description Total output tokens */
+                                outputTokens: number;
+                                /** @description Total cached tokens */
+                                cachedTokens: number;
+                                /** @description Total reasoning tokens */
+                                reasoningTokens: number;
+                                /** @description Total cost in USD */
+                                costUsd: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description Average time to first token in milliseconds */
+                                avgTimeToFirstTokenMs: number | null;
+                            };
+                            /** @enum {string} */
+                            source: "clickhouse" | "postgres";
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analytics/cost-breakdown": {
         parameters: {
             query?: never;
@@ -11752,10 +11830,6 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                /** @description Time bucket (ISO string) */
-                                bucket: string;
-                                /** @description Value of the groupBy dimension */
-                                groupValue: string | null;
                                 /** @description Number of requests */
                                 requestCount: number;
                                 /** @description Number of errors */
@@ -11768,8 +11842,94 @@ export interface paths {
                                 outputTokens: number;
                                 /** @description Total cached tokens */
                                 cachedTokens: number;
-                                /** @description Total cost in USD (summed from cost_usd) */
+                                /** @description Total reasoning tokens */
+                                reasoningTokens: number;
+                                /** @description Total cost in USD */
                                 costUsd: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description Average time to first token in milliseconds */
+                                avgTimeToFirstTokenMs: number | null;
+                                /** @description Time bucket (ISO string) */
+                                bucket: string;
+                                /** @description Value of the groupBy dimension */
+                                groupValue: string | null;
+                            }[];
+                            /** @enum {string} */
+                            source: "clickhouse" | "postgres";
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/provider-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    organizationId: string;
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Provider health metrics scoped to an organization */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @description Provider ID */
+                                provider: string;
+                                /** @description Number of requests */
+                                requestCount: number;
+                                /** @description Number of failed requests */
+                                errorCount: number;
+                                /** @description Number of rate-limited requests */
+                                throttledCount: number;
+                                /** @description Error rate percentage */
+                                errorRate: number;
+                                /** @description Throttle rate percentage */
+                                throttleRate: number;
+                                /** @description Average end-to-end latency in milliseconds */
+                                avgLatencyMs: number | null;
+                                /** @description P95 end-to-end latency in milliseconds */
+                                p95LatencyMs: number | null;
+                                /** @description Most recent request timestamp */
+                                lastSeenAt: string | null;
                             }[];
                             /** @enum {string} */
                             source: "clickhouse" | "postgres";
