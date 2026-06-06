@@ -14,6 +14,7 @@ import {
 	Menu,
 	MessageCircle,
 	Percent,
+	SlidersHorizontal,
 	Server,
 	Sparkles,
 } from "lucide-react";
@@ -89,6 +90,7 @@ export function AdminShell({ children }: AdminShellProps) {
 	const isGlobalStats = pathname.startsWith("/global-stats");
 	const isDiscounts = pathname === "/discounts";
 	const isRateLimits = pathname === "/rate-limits";
+	const isSettings = pathname === "/settings";
 	const isProviders = pathname === "/providers";
 	const isModels = pathname === "/models";
 	const isModelProviderMappings = pathname === "/model-provider-mappings";
@@ -177,6 +179,14 @@ export function AdminShell({ children }: AdminShellProps) {
 									<SidebarMenuButton isActive={isRateLimits} size="lg">
 										<Gauge className="h-4 w-4" />
 										<span>Global Rate Limits</span>
+									</SidebarMenuButton>
+								</Link>
+							</SidebarMenuItem>
+							<SidebarMenuItem>
+								<Link href="/settings" className="block">
+									<SidebarMenuButton isActive={isSettings} size="lg">
+										<SlidersHorizontal className="h-4 w-4" />
+										<span>System Settings</span>
 									</SidebarMenuButton>
 								</Link>
 							</SidebarMenuItem>

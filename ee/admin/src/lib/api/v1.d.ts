@@ -5939,7 +5939,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List system settings
+         * @description List system settings stored in the admin database.
+         */
+        get: operations["getAdminSettings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5947,7 +5951,7 @@ export interface paths {
         head?: never;
         /**
          * Upsert a system setting
-         * @description Upsert a key/value entry in system_settings and publish the change to all gateway instances via Redis pub/sub.
+         * @description Upsert a key/value entry in system_settings and publish the change to all gateway instances via Valkey pub/sub.
          */
         patch: operations["patchAdminSettings"];
         trace?: never;
@@ -13067,6 +13071,35 @@ export interface operations {
                                 avgDuration: number | null;
                                 totalTokens: number;
                             }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description System settings list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        settings: {
+                            key: string;
+                            value?: unknown;
+                            /** @enum {string} */
+                            category: "gateway" | "security" | "audit" | "retention" | "limits";
+                            updatedAt: string;
+                            updatedBy: string | null;
                         }[];
                     };
                 };

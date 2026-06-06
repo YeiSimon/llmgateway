@@ -107,6 +107,18 @@ const tokenWindowSchema = z.enum([
 	"365d",
 ]);
 
+const systemSettingSchema = z.object({
+	key: z.string(),
+	value: z.unknown(),
+	category: z.enum(["gateway", "security", "audit", "retention", "limits"]),
+	updatedAt: z.string(),
+	updatedBy: z.string().nullable(),
+});
+
+const systemSettingsListSchema = z.object({
+	settings: z.array(systemSettingSchema),
+});
+
 const organizationSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -9909,6 +9921,52 @@ const patchSettingsRoute = createRoute({
 			description: "Setting upserted and published.",
 		},
 	},
+});
+
+const getSettingsRoute = createRoute({
+	summary: "List system settings",
+	description: "List system settings stored in the admin database.",
+	operationId: "getAdminSettings",
+	method: "get",
+	path: "/settings",
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: systemSettingsListSchema,
+				},
+			},
+			description: "System settings list.",
+		},
+	},
+});
+
+admin.openapi(getSettingsRoute, async (c) => {
+	const user = c.get("user");
+	if (!user?.id) {
+		throw new HTTPException(401, { message: "Unauthorized" });
+	}
+
+	const settings = await db
+		.select({
+			key: tables.systemSettings.key,
+			value: tables.systemSettings.value,
+			category: tables.systemSettings.category,
+			updatedAt: tables.systemSettings.updatedAt,
+			updatedBy: tables.systemSettings.updatedBy,
+		})
+		.from(tables.systemSettings)
+		.orderBy(
+			asc(tables.systemSettings.category),
+			asc(tables.systemSettings.key),
+		);
+
+	return c.json({
+		settings: settings.map((setting) => ({
+			...setting,
+			updatedAt: setting.updatedAt.toISOString(),
+		})),
+	});
 });
 
 admin.openapi(patchSettingsRoute, async (c) => {

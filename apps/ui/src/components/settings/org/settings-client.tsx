@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
 
+import { Badge } from "@/lib/components/badge";
 import {
 	Card,
 	CardContent,
@@ -13,45 +13,21 @@ import {
 } from "@/lib/components/card";
 import { Label } from "@/lib/components/label";
 import { Separator } from "@/lib/components/separator";
-import { Switch } from "@/lib/components/switch";
 import {
 	Tabs,
 	TabsContent,
 	TabsList,
 	TabsTrigger,
 } from "@/lib/components/tabs";
-import { useApi, useFetchClient } from "@/lib/fetch-client";
+import { useApi } from "@/lib/fetch-client";
 
 export function SettingsClient() {
 	const params = useParams();
 	const orgId = params.orgId as string;
 	const api = useApi();
-	const fetchClient = useFetchClient();
 
 	const { data: orgsData } = api.useQuery("get", "/orgs");
 	const orgData = orgsData?.organizations?.find((o) => o.id === orgId);
-
-	const [rateLimitFailMode, setRateLimitFailMode] = useState<"open" | "closed">(
-		"open",
-	);
-	const [savingFailMode, setSavingFailMode] = useState(false);
-
-	async function handleFailModeToggle(closed: boolean) {
-		const newMode = closed ? "closed" : "open";
-		setSavingFailMode(true);
-		try {
-			await fetchClient.PATCH("/admin/settings", {
-				body: {
-					key: "rate_limit_fail_mode",
-					value: newMode,
-					category: "limits",
-				},
-			});
-			setRateLimitFailMode(newMode);
-		} finally {
-			setSavingFailMode(false);
-		}
-	}
 
 	const org = orgData ?? null;
 
@@ -152,27 +128,22 @@ export function SettingsClient() {
 								<CardHeader>
 									<CardTitle>Rate Limit Fail Mode</CardTitle>
 									<CardDescription>
-										When Valkey is unavailable, choose whether to allow or block
-										traffic.
+										When Valkey is unavailable, the gateway falls back to the
+										platform-wide fail mode.
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
-									<div className="flex items-center gap-3">
-										<Switch
-											checked={rateLimitFailMode === "closed"}
-											onCheckedChange={handleFailModeToggle}
-											disabled={savingFailMode}
-										/>
-										<div className="space-y-0.5">
-											<Label>
-												{rateLimitFailMode === "closed"
-													? "Closed (block)"
-													: "Open (allow)"}
-											</Label>
-											<p className="text-muted-foreground text-xs">
-												{rateLimitFailMode === "closed"
-													? "Return 429 when Valkey is down."
-													: "Allow all traffic when Valkey is down."}
+									<div className="flex flex-col gap-3">
+										<div className="flex flex-wrap items-center gap-2">
+											<Badge variant="outline">Managed in Admin</Badge>
+											<Badge variant="secondary">Global setting</Badge>
+										</div>
+										<div className="space-y-1">
+											<Label>Platform control</Label>
+											<p className="text-sm text-muted-foreground">
+												This setting is configured in the admin dashboard and
+												applies to all gateway traffic. It is not editable from
+												organization settings.
 											</p>
 										</div>
 									</div>
