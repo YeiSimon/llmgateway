@@ -48,6 +48,11 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+            {{- if .Values.gateway.admin.enabled }}
+            - name: admin
+              containerPort: {{ .Values.gateway.admin.port }}
+              protocol: TCP
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "llmgateway.configMapName" . }}

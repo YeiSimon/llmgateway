@@ -96,7 +96,6 @@ api:
       cpu: 200m
       memory: 256Mi
   config:
-    keepAliveTimeoutS: 60
     timeoutMs: 5000
   # -- Additional environment variables
   extraEnv: []
@@ -116,6 +115,13 @@ gateway:
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
+  admin:
+    # -- Expose gateway admin/server routes on a separate private service.
+    enabled: true
+    port: 4003
+    host: "0.0.0.0"
+    service:
+      type: ClusterIP
   resources:
     requests:
       cpu: 100m
@@ -300,6 +306,7 @@ postgresql:
   database: llmgateway
   port: 5432
   persistence:
+    enabled: true
     size: 10Gi
     # -- Storage class (leave empty for cluster default)
     storageClass: ""
@@ -333,6 +340,7 @@ redis:
   password: ""
   port: 6379
   persistence:
+    enabled: true
     size: 2Gi
     storageClass: ""
   resources:

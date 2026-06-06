@@ -1,0 +1,17 @@
+{{- if and .Values.gateway.enabled .Values.gateway.admin.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llmgateway.fullname" . }}-gateway-admin
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "gateway-admin") | nindent 4 }}
+spec:
+  type: {{ .Values.gateway.admin.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.gateway.admin.port }}
+      targetPort: admin
+      protocol: TCP
+      name: admin
+  selector:
+    {{- include "llmgateway.componentSelectorLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+{{- end }}

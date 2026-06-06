@@ -82,13 +82,14 @@ data:
   MAX_STREAMING_BUFFER_MB: {{ .maxStreamingBufferMb | quote }}
   {{- end }}
   {{- end }}
+  {{- if .Values.gateway.admin.enabled }}
+  ADMIN_PORT: {{ .Values.gateway.admin.port | quote }}
+  ADMIN_HOST: {{ .Values.gateway.admin.host | quote }}
+  {{- end }}
 
   # API config
   RUN_MIGRATIONS: {{ .Values.api.runMigrations | default true | quote }}
   {{- with .Values.api.config }}
-  {{- if .keepAliveTimeoutS }}
-  KEEP_ALIVE_TIMEOUT_S: {{ .keepAliveTimeoutS | quote }}
-  {{- end }}
   {{- if .timeoutMs }}
   TIMEOUT_MS: {{ .timeoutMs | quote }}
   {{- end }}

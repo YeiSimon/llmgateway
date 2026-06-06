@@ -17,6 +17,11 @@ spec:
         {{- include "llmgateway.componentSelectorLabels" (dict "context" . "component" "postgresql") | nindent 8 }}
     spec:
       {{- include "llmgateway.imagePullSecrets" . | nindent 6 }}
+      {{- if not .Values.postgresql.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
       containers:
         - name: postgresql
           image: {{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}
@@ -64,6 +69,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+  {{- if .Values.postgresql.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -76,4 +82,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgresql.persistence.size | default "10Gi" }}
+  {{- end }}
 {{- end }}

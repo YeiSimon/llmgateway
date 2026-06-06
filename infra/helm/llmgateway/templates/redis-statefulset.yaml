@@ -17,6 +17,11 @@ spec:
         {{- include "llmgateway.componentSelectorLabels" (dict "context" . "component" "redis") | nindent 8 }}
     spec:
       {{- include "llmgateway.imagePullSecrets" . | nindent 6 }}
+      {{- if not .Values.redis.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
       containers:
         - name: redis
           image: {{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}
@@ -66,6 +71,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+  {{- if .Values.redis.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -78,4 +84,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.redis.persistence.size | default "2Gi" }}
+  {{- end }}
 {{- end }}
