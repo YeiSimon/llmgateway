@@ -163,10 +163,25 @@ When creating a new package in `packages/`, include these config files. Copy the
 
 ### Testing and Quality Assurance
 
-- Run `pnpm test:unit` after adding features
-- NEVER RUN THE FULL E2E suite, instead run specific tests related to your changes. Use `TEST_MODELS` to limit the models tested for faster feedback.
-- Run `pnpm build` to ensure production builds work
-- Run `pnpm format` after code changes
+After developing a change, Codex agents must verify it before committing.
+
+Run commands from the repository root only.
+
+1. Run the most specific test first:
+   - Backend/shared TypeScript changes: `pnpm test:unit`
+   - Gateway/API provider behavior: run the relevant Vitest file or a limited e2e run; do not run the full e2e suite.
+   - UI public/auth smoke changes: `pnpm test:web:ui`
+   - UI authenticated dashboard smoke changes: `pnpm test:web:ui:dashboard`
+2. For frontend changes in `apps/ui`, prefer Playwright smoke tests before broader suites:
+   - Use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome pnpm test:web:ui` when the bundled Playwright browser is unavailable.
+   - Do not add authenticated full user journeys unless the task explicitly asks for them; keep first-pass coverage as smoke tests.
+3. For gateway e2e tests, never run the full suite by default:
+   - Use `TEST_MODELS` to limit models when possible.
+   - Example: `TEST_MODELS="openai/gpt-4o-mini" pnpm test:e2e`
+4. Always run `pnpm format` after code changes and before committing.
+5. Always run `pnpm build` after finishing feature work or any API route/schema/generated-client change.
+6. If a required verification cannot run because of sandbox, browser, network, or local service limits, document the exact command and failure in the final response.
+7. Commit the finished change with a conventional commit title under 50 characters.
 
 ### Service URLs (Development)
 
