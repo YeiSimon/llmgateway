@@ -150,9 +150,9 @@ components:
         NODE_ENV: production
         OPENAI_API_KEY: ""
         PORT: "80"
-        REDIS_HOST: redis
-        REDIS_PASSWORD: redis_dev_password
-        REDIS_PORT: "6379"
+        VALKEY_HOST: valkey
+        VALKEY_PASSWORD: valkey_dev_password
+        VALKEY_PORT: "6379"
         TOGETHER_AI_API_KEY: ""
         VERTEX_API_KEY: ""
       healthcheck:
@@ -212,18 +212,18 @@ components:
         mount: /var/lib/postgresql/data
         subPath: ""
   - kind: Service
-    name: redis
+    name: valkey
     dockerCompose:
       command:
-        - redis-server
+        - valkey-server
         - "--appendonly"
         - "yes"
         - "--requirepass"
-        - redis_dev_password
+        - valkey_dev_password
       healthcheck:
         test:
           - CMD
-          - redis-cli
+          - valkey-cli
           - "--raw"
           - incr
           - ping
@@ -238,16 +238,16 @@ components:
           reservations:
             cpus: "0.1"
             memory: 128M
-      image: "redis:8-alpine"
+      image: "valkey/valkey:8-alpine"
       ports:
         - "6379:6379"
       restart: unless-stopped
     hosts:
-      - hostname: "redis-{{ env.base_domain }}"
+      - hostname: "valkey-{{ env.base_domain }}"
         path: /
         servicePort: 6379
     volumes:
-      - name: redis-data
+      - name: valkey-data
         mount: /data
         subPath: ""
   - kind: Application
@@ -336,6 +336,6 @@ volumes:
   - name: postgres-data
     size: 1Gi
     type: disk
-  - name: redis-data
+  - name: valkey-data
     size: 1Gi
     type: disk

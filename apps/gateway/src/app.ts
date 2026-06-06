@@ -8,7 +8,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
 import { UnsupportedAudioFormatError } from "@llmgateway/actions";
-import { DynamicConfig, redisClient } from "@llmgateway/cache";
+import { DynamicConfig, valkeyClient } from "@llmgateway/cache";
 import { db } from "@llmgateway/db";
 import {
 	createHonoRequestLogger,
@@ -63,7 +63,7 @@ export const config = {
 
 export const app = new OpenAPIHono<ServerTypes>();
 
-// Dynamic config — subscribes to Redis pub/sub for zero-restart config changes.
+// Dynamic config — subscribes to Valkey pub/sub for zero-restart config changes.
 // A separate subscriber connection is required (subscribe mode cannot run other commands).
 export const dynamicConfig = new DynamicConfig();
 void (async () => {
@@ -71,7 +71,7 @@ void (async () => {
 		await dynamicConfig.subscribe();
 	} catch (err) {
 		logger.warn(
-			"DynamicConfig: failed to subscribe to Redis config updates — continuing without dynamic config",
+			"DynamicConfig: failed to subscribe to Valkey config updates — continuing without dynamic config",
 			{ error: err },
 		);
 	}
@@ -222,8 +222,8 @@ const root = createRoute({
 		query: z.object({
 			skip: z.string().optional().openapi({
 				description:
-					"Comma-separated list of health checks to skip. Options: redis, database",
-				example: "redis,database",
+					"Comma-separated list of health checks to skip. Options: valkey, database",
+				example: "valkey,database",
 			}),
 		}),
 	},
@@ -237,7 +237,7 @@ const root = createRoute({
 							version: z.string(),
 							health: z.object({
 								status: z.string(),
-								redis: z.object({
+								valkey: z.object({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
@@ -261,7 +261,7 @@ const root = createRoute({
 							version: z.string(),
 							health: z.object({
 								status: z.string(),
-								redis: z.object({
+								valkey: z.object({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
@@ -274,7 +274,8 @@ const root = createRoute({
 						.openapi({}),
 				},
 			},
-			description: "Service unavailable - Redis or database connection failed.",
+			description:
+				"Service unavailable - Valkey or database connection failed.",
 		},
 	},
 });
@@ -286,18 +287,18 @@ app.openapi(root, async (c) => {
 		: [];
 
 	// By default, skip database health check for gateway since it uses cached db client
-	// and can operate without direct Postgres connectivity as long as Redis is available
+	// and can operate without direct Postgres connectivity as long as Valkey is available
 	const skipDatabase = process.env.HEALTH_CHECK_SKIP_DATABASE !== "false";
 	if (skipDatabase && !skipChecks.includes("database")) {
 		skipChecks.push("database");
 	}
 
-	// Health check timeout - allow more time under load for DB/Redis connections
+	// Health check timeout - allow more time under load for DB/Valkey connections
 	// 15 seconds default to prevent false failures during traffic spikes
 	const TIMEOUT_MS = Number(process.env.HEALTH_CHECK_TIMEOUT_MS) || 15000;
 
 	const healthChecker = new HealthChecker({
-		redisClient,
+		valkeyClient,
 		db,
 		logger,
 	});
@@ -316,22 +317,22 @@ app.openapi(root, async (c) => {
 app.get("/health/live", (c) => c.json({ status: "ok" }));
 
 // K8s readiness probe — is the pod ready to serve AI traffic?
-// Only passes when Redis is reachable AND ≥1 active provider key is configured.
+// Only passes when Valkey is reachable AND ≥1 active provider key is configured.
 app.get("/health/ready", async (c) => {
 	const checks = await Promise.allSettled([
-		redisClient.ping(),
+		valkeyClient.ping(),
 		db.query.providerKey.findFirst({
 			where: { status: { eq: "active" } },
 		}),
 	]);
 
-	const redisOk = checks[0].status === "fulfilled";
+	const valkeyOk = checks[0].status === "fulfilled";
 	const hasProvider =
 		checks[1].status === "fulfilled" && checks[1].value !== undefined;
 
-	const ready = redisOk && hasProvider;
+	const ready = valkeyOk && hasProvider;
 	return c.json(
-		{ status: ready ? "ready" : "not_ready", redis: redisOk, hasProvider },
+		{ status: ready ? "ready" : "not_ready", valkey: valkeyOk, hasProvider },
 		ready ? 200 : 503,
 	);
 });
@@ -370,14 +371,14 @@ adminApp.get("/metrics", async (c) => {
 
 adminApp.get("/api/health", async (c) => {
 	const checks = await Promise.allSettled([
-		redisClient.ping(),
+		valkeyClient.ping(),
 		db.query.providerKey.findFirst({
 			where: { status: { eq: "active" } },
 		}),
 	]);
 	return c.json({
 		postgres: { ok: checks[1].status === "fulfilled" },
-		redis: { ok: checks[0].status === "fulfilled" },
+		valkey: { ok: checks[0].status === "fulfilled" },
 	});
 });
 

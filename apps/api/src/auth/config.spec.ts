@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { db, tables } from "@llmgateway/db";
 
-import { apiAuth, redisClient } from "./config.js";
+import { apiAuth, valkeyClient } from "./config.js";
 
 describe("API auth configuration", () => {
 	test("should inherit basic auth configuration", () => {
@@ -231,8 +231,8 @@ describe("Auth rate limiting", () => {
 		await db.delete(tables.organization);
 		await db.delete(tables.user);
 
-		// Clear Redis rate limit data
-		await redisClient.flushdb();
+		// Clear Valkey rate limit data
+		await valkeyClient.flushdb();
 	});
 
 	afterEach(async () => {
@@ -243,8 +243,8 @@ describe("Auth rate limiting", () => {
 		await db.delete(tables.organization);
 		await db.delete(tables.user);
 
-		// Clear Redis rate limit data
-		await redisClient.flushdb();
+		// Clear Valkey rate limit data
+		await valkeyClient.flushdb();
 	});
 
 	test("should allow first signup request", async () => {

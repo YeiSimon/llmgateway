@@ -1,4 +1,4 @@
-import { redisClient } from "@/auth/config.js";
+import { valkeyClient } from "@/auth/config.js";
 
 import { logger } from "@llmgateway/logger";
 
@@ -84,7 +84,7 @@ async function collectSitemapUrls(sitemapUrl: string): Promise<string[]> {
 
 export async function getKnowledgeUrls(): Promise<string[]> {
 	try {
-		const cached = await redisClient.get(URLS_CACHE_KEY);
+		const cached = await valkeyClient.get(URLS_CACHE_KEY);
 		if (cached) {
 			return JSON.parse(cached) as string[];
 		}
@@ -99,7 +99,7 @@ export async function getKnowledgeUrls(): Promise<string[]> {
 
 	if (urls.length > 0) {
 		try {
-			await redisClient.set(
+			await valkeyClient.set(
 				URLS_CACHE_KEY,
 				JSON.stringify(urls),
 				"EX",
@@ -170,7 +170,7 @@ export async function fetchKnowledgePage(url: string): Promise<string> {
 
 	const cacheKey = `chat_support_page:${url}`;
 	try {
-		const cached = await redisClient.get(cacheKey);
+		const cached = await valkeyClient.get(cacheKey);
 		if (cached) {
 			return cached;
 		}
@@ -186,7 +186,7 @@ export async function fetchKnowledgePage(url: string): Promise<string> {
 	const text = htmlToText(html).slice(0, MAX_PAGE_CHARS);
 
 	try {
-		await redisClient.set(cacheKey, text, "EX", PAGE_CACHE_TTL_SECONDS);
+		await valkeyClient.set(cacheKey, text, "EX", PAGE_CACHE_TTL_SECONDS);
 	} catch (error) {
 		logger.warn("Chat support page cache write failed", { url, error });
 	}

@@ -9,7 +9,7 @@ import {
 } from "./provider-rate-limit.js";
 
 vi.mock("@llmgateway/cache", () => ({
-	redisClient: {
+	valkeyClient: {
 		zremrangebyscore: vi.fn(),
 		zcard: vi.fn(),
 		zrange: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock("@llmgateway/db", () => ({
 
 const mockCache = await import("@llmgateway/cache");
 const mockDb = await import("@llmgateway/db");
-const redis = mockCache.redisClient;
+const valkey = mockCache.valkeyClient;
 
 const noLimits = {
 	maxRpm: 0,
@@ -56,7 +56,7 @@ describe("checkProviderRateLimit", () => {
 		expect(result.blockedBy).toEqual([]);
 		expect(result.limits.rpm.limit).toBe(0);
 		expect(result.limits.rpd.limit).toBe(0);
-		expect(redis.zremrangebyscore).not.toHaveBeenCalled();
+		expect(valkey.zremrangebyscore).not.toHaveBeenCalled();
 	});
 
 	it("consumes both RPM and RPD windows when under the limits", async () => {
@@ -68,15 +68,17 @@ describe("checkProviderRateLimit", () => {
 			rpmRateLimitId: "rl-rpm",
 			rpdRateLimitId: "rl-rpd",
 		});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(50).mockResolvedValueOnce(400);
+		vi.mocked(valkey.zcard)
+			.mockResolvedValueOnce(50)
+			.mockResolvedValueOnce(400);
 
 		const result = await checkProviderRateLimit("org-1", "openai", "gpt-4o");
 
 		expect(result.allowed).toBe(true);
 		expect(result.limits.rpm.remaining).toBe(49);
 		expect(result.limits.rpd.remaining).toBe(599);
-		expect(redis.zadd).toHaveBeenCalledTimes(2);
-		expect(redis.expire).toHaveBeenCalledTimes(2);
+		expect(valkey.zadd).toHaveBeenCalledTimes(2);
+		expect(valkey.expire).toHaveBeenCalledTimes(2);
 	});
 
 	it("blocks when any configured window is exceeded", async () => {
@@ -90,8 +92,8 @@ describe("checkProviderRateLimit", () => {
 			rpmRateLimitId: "rl-rpm",
 			rpdRateLimitId: "rl-rpd",
 		});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(50);
-		vi.mocked(redis.zrange).mockResolvedValueOnce([
+		vi.mocked(valkey.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(50);
+		vi.mocked(valkey.zrange).mockResolvedValueOnce([
 			"member",
 			(now - 5_000).toString(),
 		]);
@@ -103,7 +105,7 @@ describe("checkProviderRateLimit", () => {
 			expect(result.rateLimited).toBe(true);
 			expect(result.blockedBy).toEqual(["rpm"]);
 			expect(result.retryAfter).toBeGreaterThan(0);
-			expect(redis.zadd).not.toHaveBeenCalled();
+			expect(valkey.zadd).not.toHaveBeenCalled();
 		} finally {
 			dateNowSpy.mockRestore();
 		}
@@ -119,13 +121,13 @@ describe("checkProviderRateLimit", () => {
 			rpdSource: "none",
 			rpmRateLimitId: "rl-rpm",
 		});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(0);
+		vi.mocked(valkey.zcard).mockResolvedValueOnce(0);
 
 		try {
 			await checkProviderRateLimit("org-1", "openai", "gpt-4o");
 
-			expect(redis.zadd).toHaveBeenCalledOnce();
-			const zaddArgs = vi.mocked(redis.zadd).mock.calls[0];
+			expect(valkey.zadd).toHaveBeenCalledOnce();
+			const zaddArgs = vi.mocked(valkey.zadd).mock.calls[0];
 			expect(zaddArgs[0]).toBe(
 				"rate_limit:provider_cap:rpm:org-1:openai:gpt-4o",
 			);
@@ -136,7 +138,7 @@ describe("checkProviderRateLimit", () => {
 		}
 	});
 
-	it("fails open on Redis errors", async () => {
+	it("fails open on Valkey errors", async () => {
 		vi.mocked(mockDb.getEffectiveRateLimit).mockResolvedValue({
 			maxRpm: 100,
 			maxRpd: 0,
@@ -144,8 +146,8 @@ describe("checkProviderRateLimit", () => {
 			rpdSource: "none",
 			rpmRateLimitId: "rl-rpm",
 		});
-		vi.mocked(redis.zremrangebyscore).mockRejectedValue(
-			new Error("Redis error"),
+		vi.mocked(valkey.zremrangebyscore).mockRejectedValue(
+			new Error("Valkey error"),
 		);
 
 		const result = await checkProviderRateLimit("org-1", "openai", "gpt-4o");
@@ -169,7 +171,9 @@ describe("peekProviderRateLimit", () => {
 			rpmRateLimitId: "rl-rpm",
 			rpdRateLimitId: "rl-rpd",
 		});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(20).mockResolvedValueOnce(300);
+		vi.mocked(valkey.zcard)
+			.mockResolvedValueOnce(20)
+			.mockResolvedValueOnce(300);
 
 		const result = await peekProviderRateLimit("org-1", "openai", "gpt-4o");
 
@@ -177,7 +181,7 @@ describe("peekProviderRateLimit", () => {
 		expect(result.rateLimited).toBe(false);
 		expect(result.limits.rpm.currentCount).toBe(20);
 		expect(result.limits.rpd.currentCount).toBe(300);
-		expect(redis.zadd).not.toHaveBeenCalled();
+		expect(valkey.zadd).not.toHaveBeenCalled();
 	});
 
 	it("returns all exceeded windows when multiple limits are hit", async () => {
@@ -191,8 +195,10 @@ describe("peekProviderRateLimit", () => {
 			rpmRateLimitId: "rl-rpm",
 			rpdRateLimitId: "rl-rpd",
 		});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(100);
-		vi.mocked(redis.zrange)
+		vi.mocked(valkey.zcard)
+			.mockResolvedValueOnce(10)
+			.mockResolvedValueOnce(100);
+		vi.mocked(valkey.zrange)
 			.mockResolvedValueOnce(["rpm-member", (now - 5_000).toString()])
 			.mockResolvedValueOnce(["rpd-member", (now - 10_000).toString()]);
 
@@ -230,8 +236,10 @@ describe("filterRateLimitedProviders", () => {
 				rpdSource: "global_provider",
 				rpdRateLimitId: "rl-anthropic",
 			});
-		vi.mocked(redis.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(900);
-		vi.mocked(redis.zrange).mockResolvedValueOnce([
+		vi.mocked(valkey.zcard)
+			.mockResolvedValueOnce(10)
+			.mockResolvedValueOnce(900);
+		vi.mocked(valkey.zrange).mockResolvedValueOnce([
 			"member",
 			Date.now().toString(),
 		]);
@@ -271,8 +279,8 @@ describe("pickNonRateLimitedCandidates", () => {
 		vi.mocked(mockDb.getEffectiveRateLimit)
 			.mockResolvedValueOnce(cappedRpm)
 			.mockResolvedValueOnce(openRpm);
-		vi.mocked(redis.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(20);
-		vi.mocked(redis.zrange).mockResolvedValueOnce([
+		vi.mocked(valkey.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(20);
+		vi.mocked(valkey.zrange).mockResolvedValueOnce([
 			"member",
 			Date.now().toString(),
 		]);
@@ -289,8 +297,8 @@ describe("pickNonRateLimitedCandidates", () => {
 		vi.mocked(mockDb.getEffectiveRateLimit)
 			.mockResolvedValueOnce(cappedRpm)
 			.mockResolvedValueOnce(cappedRpm);
-		vi.mocked(redis.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(10);
-		vi.mocked(redis.zrange)
+		vi.mocked(valkey.zcard).mockResolvedValueOnce(10).mockResolvedValueOnce(10);
+		vi.mocked(valkey.zrange)
 			.mockResolvedValueOnce(["m1", Date.now().toString()])
 			.mockResolvedValueOnce(["m2", Date.now().toString()]);
 
@@ -309,7 +317,7 @@ describe("pickNonRateLimitedCandidates", () => {
 
 	it("dedupes peeks across region-expanded variants of the same provider+model", async () => {
 		vi.mocked(mockDb.getEffectiveRateLimit).mockResolvedValueOnce(openRpm);
-		vi.mocked(redis.zcard).mockResolvedValueOnce(0);
+		vi.mocked(valkey.zcard).mockResolvedValueOnce(0);
 
 		const candidates = [
 			{ providerId: "alibaba", modelName: "glm-4.6", region: "singapore" },
@@ -326,7 +334,7 @@ describe("pickNonRateLimitedCandidates", () => {
 		expect(result).toEqual(candidates);
 	});
 
-	it("returns an empty list unchanged without calling Redis", async () => {
+	it("returns an empty list unchanged without calling Valkey", async () => {
 		const result = await pickNonRateLimitedCandidates("org-1", "glm-4.7", []);
 
 		expect(result).toEqual([]);

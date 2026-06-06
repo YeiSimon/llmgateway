@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { getEffectiveRateLimit, type RateLimitSource } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 
@@ -8,13 +8,13 @@ export const providerRateLimitWindows = {
 	rpm: {
 		headerSuffix: "RPM",
 		label: "requests per minute",
-		redisSuffix: "rpm",
+		suffix: "rpm",
 		seconds: 60,
 	},
 	rpd: {
 		headerSuffix: "RPD",
 		label: "requests per day",
-		redisSuffix: "rpd",
+		suffix: "rpd",
 		seconds: 60 * 60 * 24,
 	},
 } as const;
@@ -44,7 +44,7 @@ function getProviderRateLimitKey(
 	model: string,
 	window: ProviderRateLimitWindow,
 ): string {
-	return `rate_limit:provider_cap:${providerRateLimitWindows[window].redisSuffix}:${organizationId}:${provider}:${model}`;
+	return `rate_limit:provider_cap:${providerRateLimitWindows[window].suffix}:${organizationId}:${provider}:${model}`;
 }
 
 async function readWindowState(
@@ -68,11 +68,11 @@ async function readWindowState(
 	const windowDurationMs = windowSeconds * 1000;
 	const windowStart = now - windowDurationMs;
 
-	await redisClient.zremrangebyscore(key, "-inf", windowStart);
-	const currentCount = await redisClient.zcard(key);
+	await valkeyClient.zremrangebyscore(key, "-inf", windowStart);
+	const currentCount = await valkeyClient.zcard(key);
 
 	if (currentCount >= limit) {
-		const oldestEntry = await redisClient.zrange(key, 0, 0, "WITHSCORES");
+		const oldestEntry = await valkeyClient.zrange(key, 0, 0, "WITHSCORES");
 		const retryAfter =
 			oldestEntry.length > 1
 				? Math.max(
@@ -108,8 +108,8 @@ async function addWindowEntry(
 	now: number,
 	member: string,
 ): Promise<void> {
-	await redisClient.zadd(key, now, member);
-	await redisClient.expire(key, providerRateLimitWindows[window].seconds * 2);
+	await valkeyClient.zadd(key, now, member);
+	await valkeyClient.expire(key, providerRateLimitWindows[window].seconds * 2);
 }
 
 function getCombinedRetryAfter(

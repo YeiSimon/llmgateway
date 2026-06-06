@@ -1,10 +1,10 @@
 import { processLogQueue } from "worker";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { db, tables, eq } from "@llmgateway/db";
 
 export async function clearCache() {
-	await redisClient.flushdb();
+	await valkeyClient.flushdb();
 }
 
 /**

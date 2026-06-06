@@ -4,7 +4,7 @@ import { checkFreeModelRateLimit, isFreeModel } from "./rate-limit.js";
 
 // Mock dependencies
 vi.mock("@llmgateway/cache", () => ({
-	redisClient: {
+	valkeyClient: {
 		zremrangebyscore: vi.fn(),
 		zcard: vi.fn(),
 		zrange: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock("@/lib/cached-queries.js", () => ({
 
 const mockCache = await import("@llmgateway/cache");
 const mockCachedQueries = await import("@/lib/cached-queries.js");
-const redis = mockCache.redisClient;
+const valkey = mockCache.valkeyClient;
 
 describe("Rate Limiting", () => {
 	beforeEach(() => {
@@ -114,7 +114,7 @@ describe("Rate Limiting", () => {
 				lastTopUpAmount: null,
 			});
 
-			vi.mocked(redis.zcard).mockResolvedValue(0);
+			vi.mocked(valkey.zcard).mockResolvedValue(0);
 
 			const result = await checkFreeModelRateLimit(
 				organizationId,
@@ -123,9 +123,9 @@ describe("Rate Limiting", () => {
 			);
 
 			expect(result.allowed).toBe(true);
-			expect(redis.zremrangebyscore).toHaveBeenCalled();
-			expect(redis.zadd).toHaveBeenCalled();
-			expect(redis.expire).toHaveBeenCalled();
+			expect(valkey.zremrangebyscore).toHaveBeenCalled();
+			expect(valkey.zadd).toHaveBeenCalled();
+			expect(valkey.expire).toHaveBeenCalled();
 		});
 
 		it("should use a unique sorted-set member per request", async () => {
@@ -174,13 +174,13 @@ describe("Rate Limiting", () => {
 				devPlanCardFingerprint: null,
 				lastTopUpAmount: null,
 			});
-			vi.mocked(redis.zcard).mockResolvedValue(0);
+			vi.mocked(valkey.zcard).mockResolvedValue(0);
 
 			try {
 				await checkFreeModelRateLimit(organizationId, model, modelDefinition);
 
-				expect(redis.zadd).toHaveBeenCalledOnce();
-				const zaddArgs = vi.mocked(redis.zadd).mock.calls[0];
+				expect(valkey.zadd).toHaveBeenCalledOnce();
+				const zaddArgs = vi.mocked(valkey.zadd).mock.calls[0];
 				expect(zaddArgs[0]).toBe(
 					`rate_limit:free_model:${organizationId}:${model}`,
 				);
@@ -237,7 +237,7 @@ describe("Rate Limiting", () => {
 				lastTopUpAmount: null,
 			});
 
-			vi.mocked(redis.zcard).mockResolvedValue(5); // Under elevated limit (20)
+			vi.mocked(valkey.zcard).mockResolvedValue(5); // Under elevated limit (20)
 
 			const result = await checkFreeModelRateLimit(
 				organizationId,
@@ -293,9 +293,9 @@ describe("Rate Limiting", () => {
 				lastTopUpAmount: null,
 			});
 
-			vi.mocked(redis.zcard).mockResolvedValue(5); // At limit (5)
+			vi.mocked(valkey.zcard).mockResolvedValue(5); // At limit (5)
 			const futureTimestamp = Date.now() + 30000; // 30 seconds in future
-			vi.mocked(redis.zrange).mockResolvedValue([
+			vi.mocked(valkey.zrange).mockResolvedValue([
 				"123",
 				futureTimestamp.toString(),
 			]);
@@ -357,9 +357,9 @@ describe("Rate Limiting", () => {
 				lastTopUpAmount: null,
 			});
 
-			vi.mocked(redis.zcard).mockResolvedValue(20); // At elevated limit (20)
+			vi.mocked(valkey.zcard).mockResolvedValue(20); // At elevated limit (20)
 			const futureTimestamp = Date.now() + 30000; // 30 seconds in future
-			vi.mocked(redis.zrange).mockResolvedValue([
+			vi.mocked(valkey.zrange).mockResolvedValue([
 				"123",
 				futureTimestamp.toString(),
 			]);
@@ -376,7 +376,7 @@ describe("Rate Limiting", () => {
 			expect(result.limit).toBe(20);
 		});
 
-		it("should allow requests on Redis errors", async () => {
+		it("should allow requests on Valkey errors", async () => {
 			const modelDefinition = { free: true };
 
 			vi.mocked(mockCachedQueries.findOrganizationById).mockResolvedValue({
@@ -420,7 +420,7 @@ describe("Rate Limiting", () => {
 				devPlanCardFingerprint: null,
 				lastTopUpAmount: null,
 			});
-			vi.mocked(redis.zremrangebyscore).mockRejectedValue(
+			vi.mocked(valkey.zremrangebyscore).mockRejectedValue(
 				new Error("Redis error"),
 			);
 

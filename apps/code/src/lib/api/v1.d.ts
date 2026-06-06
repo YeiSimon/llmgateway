@@ -35,7 +35,7 @@ export interface paths {
                                     connected: boolean;
                                     error?: string;
                                 };
-                                redis: {
+                                valkey: {
                                     connected: boolean;
                                     error?: string;
                                 };
@@ -43,7 +43,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Service unavailable - Redis or database connection failed. */
+                /** @description Service unavailable - Valkey or database connection failed. */
                 503: {
                     headers: {
                         [name: string]: unknown;
@@ -58,7 +58,7 @@ export interface paths {
                                     connected: boolean;
                                     error?: string;
                                 };
-                                redis: {
+                                valkey: {
                                     connected: boolean;
                                     error?: string;
                                 };
@@ -5947,9 +5947,43 @@ export interface paths {
         head?: never;
         /**
          * Upsert a system setting
-         * @description Upsert a key/value entry in system_settings and publish the change to all gateway instances via Redis pub/sub.
+         * @description Upsert a key/value entry in system_settings and publish the change to all gateway instances via Valkey pub/sub.
          */
         patch: operations["patchAdminSettings"];
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/guardrails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get guardrail config and rules for an organization */
+        get: operations["getAdminGuardrails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/violations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List guardrail violations for an organization */
+        get: operations["getAdminViolations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/keys/api": {
@@ -13071,6 +13105,87 @@ export interface operations {
                     "application/json": {
                         ok: boolean;
                         key: string;
+                    };
+                };
+            };
+        };
+    };
+    getAdminGuardrails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guardrail config and rules for the organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        config: {
+                            id: string;
+                            organizationId: string;
+                            enabled: boolean;
+                            piiAction: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                        } | null;
+                        rules: {
+                            id: string;
+                            name: string;
+                            enabled: boolean;
+                            type: string;
+                            action: string;
+                            priority: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getAdminViolations: {
+        parameters: {
+            query?: {
+                limit?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guardrail violations for the organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        violations: {
+                            id: string;
+                            createdAt: string;
+                            ruleId: string;
+                            ruleName: string;
+                            category: string;
+                            actionTaken: string;
+                            matchedPattern: string | null;
+                            logId: string | null;
+                            apiKeyId: string | null;
+                            model: string | null;
+                        }[];
+                        hasMore: boolean;
+                        nextCursor: string | null;
                     };
                 };
             };

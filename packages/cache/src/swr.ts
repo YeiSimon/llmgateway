@@ -1,6 +1,6 @@
 import { logger } from "@llmgateway/logger";
 
-import { redisClient } from "./redis.js";
+import { valkeyClient } from "./valkey.js";
 
 export const SWR_PREFIX = "swr:";
 export const SWR_TABLE_INDEX_PREFIX = "swr:tables:";
@@ -52,7 +52,7 @@ async function writeMirror<T>(
 		const payload =
 			value === undefined ? ({ [SWR_NONE_SENTINEL]: true } as const) : value;
 
-		const pipeline = redisClient.pipeline();
+		const pipeline = valkeyClient.pipeline();
 		pipeline.set(cacheKey, JSON.stringify(payload), "EX", ttl);
 		for (const table of tables) {
 			const indexKey = tableIndexKey(table);
@@ -72,7 +72,7 @@ async function writeMirror<T>(
 async function readMirror<T>(
 	key: string,
 ): Promise<{ hit: true; value: T } | { hit: false }> {
-	const cached = await redisClient.get(swrKey(key));
+	const cached = await valkeyClient.get(swrKey(key));
 	if (cached === null) {
 		return { hit: false };
 	}
@@ -121,7 +121,7 @@ export async function invalidateSwrByTables(tables: string[]): Promise<void> {
 	try {
 		const allKeysToDelete = new Set<string>();
 		for (const table of tables) {
-			const members = await redisClient.smembers(tableIndexKey(table));
+			const members = await valkeyClient.smembers(tableIndexKey(table));
 			for (const member of members) {
 				allKeysToDelete.add(member);
 			}
@@ -129,7 +129,7 @@ export async function invalidateSwrByTables(tables: string[]): Promise<void> {
 
 		if (allKeysToDelete.size === 0) {
 			for (const table of tables) {
-				await redisClient.del(tableIndexKey(table));
+				await valkeyClient.del(tableIndexKey(table));
 			}
 			return;
 		}
@@ -138,12 +138,12 @@ export async function invalidateSwrByTables(tables: string[]): Promise<void> {
 		for (let i = 0; i < keysArray.length; i += SWR_BATCH_SIZE) {
 			const batch = keysArray.slice(i, i + SWR_BATCH_SIZE);
 			if (batch.length > 0) {
-				await redisClient.unlink(...batch);
+				await valkeyClient.unlink(...batch);
 			}
 		}
 
 		for (const table of tables) {
-			await redisClient.del(tableIndexKey(table));
+			await valkeyClient.del(tableIndexKey(table));
 		}
 	} catch (error) {
 		logger.error(

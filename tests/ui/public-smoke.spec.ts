@@ -45,6 +45,28 @@ const modelPages: Array<{ path: string; heading: RegExp }> = [
 	{ path: "/models/discounted", heading: /^Discounted Models$/i },
 ];
 
+const dynamicPublicPages: Array<{ path: string; heading: RegExp }> = [
+	{
+		path: "/blog/openai-compatible-embeddings",
+		heading: /^Embeddings on LLM Gateway: One API for Vectors and Chat$/i,
+	},
+	{ path: "/blog/category/product", heading: /^Blog$/i },
+	{
+		path: "/changelog/openai-compatible-embeddings",
+		heading: /^OpenAI-Compatible Embeddings$/i,
+	},
+	{ path: "/legal/privacy", heading: /^Privacy Policy$/i },
+	{
+		path: "/migration/openrouter",
+		heading: /^Migrate from OpenRouter$/i,
+	},
+	{
+		path: "/features/multi-provider-support",
+		heading: /^Multi-Provider Support$/i,
+	},
+	{ path: "/providers/anthropic", heading: /^Anthropic Provider$/i },
+];
+
 test.describe("public pages", () => {
 	for (const route of publicPages) {
 		test(`${route.path} renders`, async ({ page }) => {
@@ -60,6 +82,14 @@ test.describe("model grouping pages", () => {
 			await expect(
 				page.getByRole("link", { name: /^Compare$/i }),
 			).toBeVisible();
+		});
+	}
+});
+
+test.describe("dynamic public pages", () => {
+	for (const route of dynamicPublicPages) {
+		test(`${route.path} renders`, async ({ page }) => {
+			await expectHealthyPage(page, route.path, route.heading);
 		});
 	}
 });

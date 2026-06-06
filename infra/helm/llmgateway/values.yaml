@@ -327,16 +327,16 @@ externalPostgresql:
   database: llmgateway
 
 # =============================================================================
-# Built-in Redis
-# Set enabled: false to use an external Redis (configure externalRedis).
+# Built-in Valkey
+# Set enabled: false to use an external Valkey (configure externalValkey).
 # =============================================================================
-redis:
+valkey:
   enabled: true
   image:
-    repository: redis
+    repository: valkey/valkey
     tag: "8-alpine"
     pullPolicy: IfNotPresent
-  # -- Redis password (leave empty for no authentication)
+  # -- Valkey password (leave empty for no authentication)
   password: ""
   port: 6379
   persistence:
@@ -351,8 +351,8 @@ redis:
       cpu: 200m
       memory: 256Mi
 
-# -- External Redis (used when redis.enabled is false)
-externalRedis:
+# -- External Valkey (used when valkey.enabled is false)
+externalValkey:
   host: ""
   port: 6379
   password: ""

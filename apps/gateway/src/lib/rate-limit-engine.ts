@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { dynamicConfig } from "@/app.js";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { and, db, eq, isNull, or, tables } from "@llmgateway/db";
 import { rateLimitedTotal } from "@llmgateway/instrumentation";
 import { logger } from "@llmgateway/logger";
@@ -223,7 +223,7 @@ export async function checkAndIncrementRateLimits(
 
 	let raw: unknown;
 	try {
-		raw = await redisClient.eval(
+		raw = await valkeyClient.eval(
 			SLIDING_WINDOW_LUA,
 			keys.length,
 			...keys,

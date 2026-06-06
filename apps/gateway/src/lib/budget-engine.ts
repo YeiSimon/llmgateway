@@ -1,4 +1,4 @@
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { and, db, eq, isNull, or, tables } from "@llmgateway/db";
 import {
 	budgetAlertTotal,
@@ -56,7 +56,7 @@ async function fireAlertIfNeeded(
 		if (pct >= threshold) {
 			const firedKey = alertFiredKey(budgetKey, threshold);
 			// SET NX so the alert fires at most once per period bucket per threshold
-			const set = await redisClient.set(
+			const set = await valkeyClient.set(
 				firedKey,
 				"1",
 				"EX",
@@ -126,7 +126,7 @@ export async function checkBudgetsPreflight(
 			cap.period,
 			bucketId,
 		);
-		const currentStr = await redisClient.get(key);
+		const currentStr = await valkeyClient.get(key);
 		const current = currentStr ? parseFloat(currentStr) : 0;
 		if (current >= cap.limit) {
 			const label = `${cap.subjectKind}:${cap.period}_budget`;
@@ -185,9 +185,9 @@ export async function incrementBudgets(
 			bucketId,
 		);
 		const newValue = parseFloat(
-			await redisClient.incrbyfloat(key, weightedTokens),
+			await valkeyClient.incrbyfloat(key, weightedTokens),
 		);
-		await redisClient.expire(key, ttl);
+		await valkeyClient.expire(key, ttl);
 		await fireAlertIfNeeded(
 			key,
 			cap.subjectKind,

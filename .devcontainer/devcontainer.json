@@ -57,7 +57,7 @@
 			"label": "PostgreSQL"
 		},
 		"6379": {
-			"label": "Redis"
+			"label": "Valkey"
 		}
 	}
 }

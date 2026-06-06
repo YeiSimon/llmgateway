@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
 interface ServiceAccountKey {
@@ -10,7 +10,7 @@ interface ServiceAccountKey {
 	project_id: string;
 }
 
-const REDIS_KEY = "gcp:vertex-anthropic:access_token";
+const VALKEY_KEY = "gcp:vertex-anthropic:access_token";
 const TTL_SECONDS = 50 * 60;
 const TTL_MS = TTL_SECONDS * 1000;
 
@@ -109,14 +109,14 @@ export async function getGcpAccessToken(): Promise<string | null> {
 	}
 
 	try {
-		const cached = await redisClient.get(REDIS_KEY);
+		const cached = await valkeyClient.get(VALKEY_KEY);
 		if (cached) {
 			memoryCache = { token: cached, expiresAt: Date.now() + 60_000 };
 			return cached;
 		}
 	} catch (err) {
 		logger.debug(
-			"Redis unavailable for token cache read",
+			"Valkey unavailable for token cache read",
 			err instanceof Error ? err : new Error(String(err)),
 		);
 	}
@@ -124,10 +124,10 @@ export async function getGcpAccessToken(): Promise<string | null> {
 	const token = await fetchNewToken(sa);
 
 	try {
-		await redisClient.set(REDIS_KEY, token, "EX", TTL_SECONDS);
+		await valkeyClient.set(VALKEY_KEY, token, "EX", TTL_SECONDS);
 	} catch (err) {
 		logger.debug(
-			"Redis unavailable for token cache write",
+			"Valkey unavailable for token cache write",
 			err instanceof Error ? err : new Error(String(err)),
 		);
 	}

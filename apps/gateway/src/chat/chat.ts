@@ -4330,7 +4330,7 @@ chat.openapi(completions, async (c) => {
 	// For Google providers, enrich messages with cached thought_signatures
 	// This is needed for multi-turn tool call conversations with Gemini 3+
 	if (isGoogleCompatibleProvider(usedProvider)) {
-		const { redisClient } = await import("@llmgateway/cache");
+		const { valkeyClient } = await import("@llmgateway/cache");
 		for (const message of messages) {
 			if (
 				message.role === "assistant" &&
@@ -4340,8 +4340,8 @@ chat.openapi(completions, async (c) => {
 				for (const toolCall of message.tool_calls) {
 					if (toolCall.id) {
 						try {
-							// Use redisClient.get directly since thought_signature is a plain string, not JSON
-							const cachedSignature = await redisClient.get(
+							// Use valkeyClient.get directly since thought_signature is a plain string, not JSON
+							const cachedSignature = await valkeyClient.get(
 								`thought_signature:${toolCall.id}`,
 							);
 							if (cachedSignature) {

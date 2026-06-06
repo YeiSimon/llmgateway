@@ -129,8 +129,8 @@ ENV POSTGRES_USER=postgres
 ENV POSTGRES_PASSWORD=llmgateway
 ENV POSTGRES_DB=llmgateway
 ENV DATABASE_URL=postgres://postgres:llmgateway@localhost:5432/llmgateway
-ENV REDIS_HOST=localhost
-ENV REDIS_PORT=6379
+ENV VALKEY_HOST=localhost
+ENV VALKEY_PORT=6379
 ENV TELEMETRY_ACTIVE=true
 ENV RUN_MIGRATIONS=true
 

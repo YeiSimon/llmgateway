@@ -9,7 +9,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { redisClient } from "@/auth/config.js";
+import { valkeyClient } from "@/auth/config.js";
 import {
 	fetchKnowledgePage,
 	getKnowledgeUrls,
@@ -93,9 +93,9 @@ function extractClientIP(c: {
 async function checkRateLimit(identifier: string): Promise<boolean> {
 	const key = `chat_support_rate_limit:${identifier}`;
 	try {
-		const count = await redisClient.incr(key);
+		const count = await valkeyClient.incr(key);
 		if (count === 1) {
-			await redisClient.expire(key, RATE_LIMIT_WINDOW_SECONDS);
+			await valkeyClient.expire(key, RATE_LIMIT_WINDOW_SECONDS);
 		}
 		return count <= RATE_LIMIT_MAX;
 	} catch (error) {
@@ -111,26 +111,26 @@ function getTextFromUIMessage(message: UIMessage): string {
 		.join("");
 }
 
-// Redis is a best-effort cache for clientId → conversationId. If it's
+// Valkey is a best-effort cache for clientId → conversationId. If it's
 // unavailable the request still completes via the DB-backed lookup, so these
 // helpers swallow failures instead of propagating them.
-async function safeRedisGet(key: string): Promise<string | null> {
+async function safeValkeyGet(key: string): Promise<string | null> {
 	try {
-		return await redisClient.get(key);
+		return await valkeyClient.get(key);
 	} catch (error) {
-		logger.error("Chat support Redis get failed", { error });
+		logger.error("Chat support Valkey get failed", { error });
 		return null;
 	}
 }
 
-async function safeRedisSetConversation(
+async function safeValkeySetConversation(
 	key: string,
 	value: string,
 ): Promise<void> {
 	try {
-		await redisClient.set(key, value, "EX", CONVERSATION_TTL_SECONDS);
+		await valkeyClient.set(key, value, "EX", CONVERSATION_TTL_SECONDS);
 	} catch (error) {
-		logger.error("Chat support Redis set failed", { error });
+		logger.error("Chat support Valkey set failed", { error });
 	}
 }
 
@@ -139,10 +139,10 @@ async function safeRedisSetConversation(
 async function findActiveConversationId(
 	clientId: string,
 ): Promise<string | null> {
-	const redisKey = `chat_support_conv:${clientId}`;
+	const valkeyKey = `chat_support_conv:${clientId}`;
 	const t = tables.chatSupportConversation;
 
-	const cachedId = await safeRedisGet(redisKey);
+	const cachedId = await safeValkeyGet(valkeyKey);
 	if (cachedId) {
 		const rows = await db
 			.select({ id: t.id, archivedAt: t.archivedAt })
@@ -163,7 +163,7 @@ async function findActiveConversationId(
 
 	const found = rows[0]?.id ?? null;
 	if (found) {
-		await safeRedisSetConversation(redisKey, found);
+		await safeValkeySetConversation(valkeyKey, found);
 	}
 	return found;
 }
@@ -182,7 +182,7 @@ async function createNewConversation(
 		.returning({ id: t.id });
 	const conversationId = conv!.id;
 
-	await safeRedisSetConversation(
+	await safeValkeySetConversation(
 		`chat_support_conv:${clientId}`,
 		conversationId,
 	);

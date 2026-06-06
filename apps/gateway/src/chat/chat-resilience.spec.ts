@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, test, vi, afterEach } from "vitest";
 import { app } from "@/app.js";
 import { createGatewayApiTestHarness } from "@/test-utils/gateway-api-test-harness.js";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { cdb, db, eq, tables } from "@llmgateway/db";
 
 describe("chat resilience under DB outage", () => {
@@ -197,9 +197,9 @@ describe("chat resilience under DB outage", () => {
 			expect((await buildChatRequest("resilience-token-4")).status).toBe(200);
 
 			await new Promise((resolve) => setTimeout(resolve, 1500));
-			const swrKeys = await redisClient.keys("swr:*");
+			const swrKeys = await valkeyClient.keys("swr:*");
 			for (const k of swrKeys) {
-				await redisClient.unlink(k);
+				await valkeyClient.unlink(k);
 			}
 
 			const restore = stubDbOutage();
@@ -229,7 +229,7 @@ describe("chat resilience under DB outage", () => {
 
 		expect((await buildChatRequest("resilience-token-5")).status).toBe(200);
 
-		const mirrorBefore = await redisClient.get(
+		const mirrorBefore = await valkeyClient.get(
 			"swr:providerKey:org-id:llmgateway",
 		);
 		expect(mirrorBefore).not.toBeNull();
@@ -239,7 +239,7 @@ describe("chat resilience under DB outage", () => {
 			.set({ baseUrl: `${mockServerUrl}/` })
 			.where(eq(tables.providerKey.id, "resilience-provider-key-5"));
 
-		const mirrorAfter = await redisClient.get(
+		const mirrorAfter = await valkeyClient.get(
 			"swr:providerKey:org-id:llmgateway",
 		);
 		expect(mirrorAfter).toBeNull();
@@ -257,7 +257,7 @@ describe("chat resilience under DB outage", () => {
 			200,
 		);
 
-		const mirror = await redisClient.get(
+		const mirror = await valkeyClient.get(
 			"swr:project:cachingEnabled:project-id",
 		);
 		expect(mirror).not.toBeNull();

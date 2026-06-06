@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { getStopSignal, isStopRequested } from "@/shutdown.js";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import {
 	and,
 	asc,
@@ -605,7 +605,7 @@ async function cacheVideoProxySourceUrl(
 	sourceUrl: string,
 ): Promise<void> {
 	try {
-		await redisClient.set(
+		await valkeyClient.set(
 			getVideoProxyRedisKey(logId),
 			sourceUrl,
 			"EX",

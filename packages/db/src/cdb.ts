@@ -1,10 +1,10 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 
 import { pool } from "./db.js";
-import { RedisCache } from "./redis-cache.js";
 import { relations } from "./relations.js";
+import { ValkeyCache } from "./valkey-cache.js";
 
 // Use the shared pool from db.ts instead of creating a separate pool
 // This prevents connection exhaustion from having multiple pools
@@ -12,7 +12,7 @@ const _cdb = drizzle({
 	client: pool,
 	casing: "snake_case",
 	relations,
-	cache: new RedisCache(redisClient),
+	cache: new ValkeyCache(valkeyClient),
 });
 
 /**
@@ -27,7 +27,7 @@ const _cdb = drizzle({
 export type CacheableDb = Omit<typeof _cdb, "query">;
 
 /**
- * Cached database client with Redis caching.
+ * Cached database client with Valkey caching.
  *
  * IMPORTANT: Only use db.select().from() queries with this client.
  * The .query property is intentionally omitted because relational queries

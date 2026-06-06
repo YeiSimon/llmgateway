@@ -1,7 +1,7 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 
-import { redisClient } from "@/auth/config.js";
+import { valkeyClient } from "@/auth/config.js";
 import { notifyEnterpriseContact } from "@/utils/discord.js";
 
 import { db, eq, tables } from "@llmgateway/db";
@@ -140,9 +140,9 @@ function isDisposableEmail(email: string): boolean {
 async function checkRateLimit(identifier: string): Promise<boolean> {
 	const key = `contact_rate_limit:${identifier}`;
 	try {
-		const count = await redisClient.incr(key);
+		const count = await valkeyClient.incr(key);
 		if (count === 1) {
-			await redisClient.expire(key, RATE_LIMIT_WINDOW_SECONDS);
+			await valkeyClient.expire(key, RATE_LIMIT_WINDOW_SECONDS);
 		}
 		return count <= RATE_LIMIT_MAX;
 	} catch (error) {
@@ -150,7 +150,7 @@ async function checkRateLimit(identifier: string): Promise<boolean> {
 			error,
 			identifier,
 		});
-		// Fail open — allow the request if Redis is down
+		// Fail open — allow the request if Valkey is down
 		return true;
 	}
 }

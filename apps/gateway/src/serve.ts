@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { closeDatabase, ClickHouseWriter } from "@llmgateway/db";
 import {
 	initializeInstrumentation,
@@ -132,9 +132,9 @@ const gracefulShutdown = async (signal: string, server: ServerType) => {
 		await closeDatabase();
 		logger.info("Database connection closed");
 
-		logger.info("Closing Redis connection");
-		await redisClient.quit();
-		logger.info("Redis connection closed");
+		logger.info("Closing Valkey connection");
+		await valkeyClient.quit();
+		logger.info("Valkey connection closed");
 
 		if (clickhouseWriter) {
 			logger.info("Flushing ClickHouse writer");

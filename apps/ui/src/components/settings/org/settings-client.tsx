@@ -152,7 +152,7 @@ export function SettingsClient() {
 								<CardHeader>
 									<CardTitle>Rate Limit Fail Mode</CardTitle>
 									<CardDescription>
-										When Redis is unavailable, choose whether to allow or block
+										When Valkey is unavailable, choose whether to allow or block
 										traffic.
 									</CardDescription>
 								</CardHeader>
@@ -171,8 +171,8 @@ export function SettingsClient() {
 											</Label>
 											<p className="text-muted-foreground text-xs">
 												{rateLimitFailMode === "closed"
-													? "Return 429 when Redis is down."
-													: "Allow all traffic when Redis is down."}
+													? "Return 429 when Valkey is down."
+													: "Allow all traffic when Valkey is down."}
 											</p>
 										</div>
 									</div>

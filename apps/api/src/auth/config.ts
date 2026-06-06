@@ -45,15 +45,15 @@ function resolveCallbackBaseUrl(request?: Request): string {
 	return uiUrl;
 }
 
-export const redisClient = new Redis({
-	host: process.env.REDIS_HOST ?? "localhost",
-	port: Number(process.env.REDIS_PORT) || 6379,
-	password: process.env.REDIS_PASSWORD,
+export const valkeyClient = new Redis({
+	host: process.env.VALKEY_HOST ?? "localhost",
+	port: Number(process.env.VALKEY_PORT) || 6379,
+	password: process.env.VALKEY_PASSWORD,
 });
 
-redisClient.on("error", (err: unknown) =>
+valkeyClient.on("error", (err: unknown) =>
 	logger.error(
-		"Redis Client Error for auth",
+		"Valkey Client Error for auth",
 		err instanceof Error ? err : new Error(String(err)),
 	),
 );
@@ -101,7 +101,7 @@ async function shouldLogSessionIpMismatch(
 	const key = `session_ip_binding_audit:${sessionId}:${boundIp}:${currentIp}`;
 
 	try {
-		const result = await redisClient.set(
+		const result = await valkeyClient.set(
 			key,
 			"1",
 			"EX",
@@ -194,13 +194,13 @@ export async function checkAndRecordSignupAttempt(
 	const now = Date.now();
 
 	try {
-		const pipeline = redisClient.pipeline();
+		const pipeline = valkeyClient.pipeline();
 		pipeline.get(key);
 		pipeline.get(attemptsKey);
 		const results = await pipeline.exec();
 
 		if (!results) {
-			throw new Error("Redis pipeline execution failed");
+			throw new Error("Valkey pipeline execution failed");
 		}
 
 		const lastAttemptTime = results[0][1] as string | null;
@@ -232,8 +232,8 @@ export async function checkAndRecordSignupAttempt(
 		);
 		const nextResetTime = now + nextDelayMs;
 
-		// Update Redis with new attempt
-		const updatePipeline = redisClient.pipeline();
+		// Update Valkey with new attempt
+		const updatePipeline = valkeyClient.pipeline();
 		updatePipeline.set(key, now.toString());
 		updatePipeline.set(attemptsKey, newAttemptCount.toString());
 		updatePipeline.expire(key, Math.ceil((24 * 60 * 60 * 1000) / 1000)); // 24 hours
@@ -258,7 +258,7 @@ export async function checkAndRecordSignupAttempt(
 			error instanceof Error ? error : new Error(String(error)),
 		);
 
-		// Fail open - allow the request if Redis is down
+		// Fail open - allow the request if Valkey is down
 		return {
 			allowed: true,
 			resetTime: now,
@@ -274,7 +274,7 @@ export interface ExponentialRateLimitConfig {
 }
 
 /**
- * Exponential backoff rate limiting function using Redis
+ * Exponential backoff rate limiting function using Valkey
  * Each failed attempt increases the delay exponentially
  */
 export async function checkExponentialRateLimit(
@@ -287,13 +287,13 @@ export async function checkExponentialRateLimit(
 
 	try {
 		// Get the last attempt time and attempt count
-		const pipeline = redisClient.pipeline();
+		const pipeline = valkeyClient.pipeline();
 		pipeline.get(key);
 		pipeline.get(attemptsKey);
 		const results = await pipeline.exec();
 
 		if (!results) {
-			throw new Error("Redis pipeline execution failed");
+			throw new Error("Valkey pipeline execution failed");
 		}
 
 		const lastAttemptTime = results[0][1] as string | null;
@@ -334,8 +334,8 @@ export async function checkExponentialRateLimit(
 		);
 		const nextResetTime = now + nextDelayMs;
 
-		// Update Redis with new attempt
-		const updatePipeline = redisClient.pipeline();
+		// Update Valkey with new attempt
+		const updatePipeline = valkeyClient.pipeline();
 		updatePipeline.set(key, now.toString());
 		updatePipeline.set(attemptsKey, newAttemptCount.toString());
 		updatePipeline.expire(key, Math.ceil(config.maxDelayMs / 1000));
@@ -362,7 +362,7 @@ export async function checkExponentialRateLimit(
 			error instanceof Error ? error : new Error(String(error)),
 		);
 
-		// Fail open - allow the request if Redis is down
+		// Fail open - allow the request if Valkey is down
 		return {
 			allowed: true,
 			resetTime: now + config.baseDelayMs,
@@ -382,7 +382,7 @@ export async function resetExponentialRateLimit(
 	const attemptsKey = `${config.keyPrefix}_attempts:${identifier}`;
 
 	try {
-		const pipeline = redisClient.pipeline();
+		const pipeline = valkeyClient.pipeline();
 		pipeline.del(key);
 		pipeline.del(attemptsKey);
 		await pipeline.exec();
@@ -399,7 +399,7 @@ export async function resetExponentialRateLimit(
 }
 
 /**
- * Generic rate limiting function using sliding window with Redis
+ * Generic rate limiting function using sliding window with Valkey
  * (kept for backward compatibility if needed elsewhere)
  */
 export async function checkRateLimit(
@@ -412,14 +412,14 @@ export async function checkRateLimit(
 
 	try {
 		// First, clean up expired entries and count current requests
-		const cleanupPipeline = redisClient.pipeline();
+		const cleanupPipeline = valkeyClient.pipeline();
 		cleanupPipeline.zremrangebyscore(key, 0, windowStart);
 		cleanupPipeline.zcard(key);
 
 		const cleanupResults = await cleanupPipeline.exec();
 
 		if (!cleanupResults) {
-			throw new Error("Redis pipeline execution failed");
+			throw new Error("Valkey pipeline execution failed");
 		}
 
 		// Get the count after removing expired entries
@@ -433,7 +433,7 @@ export async function checkRateLimit(
 
 		// Only add the request if it's allowed
 		if (allowed) {
-			const addPipeline = redisClient.pipeline();
+			const addPipeline = valkeyClient.pipeline();
 			addPipeline.zadd(key, now, now);
 			addPipeline.expire(key, Math.ceil(config.windowSizeMs / 1000));
 			await addPipeline.exec();
@@ -459,7 +459,7 @@ export async function checkRateLimit(
 			error instanceof Error ? error : new Error(String(error)),
 		);
 
-		// Fail open - allow the request if Redis is down
+		// Fail open - allow the request if Valkey is down
 		return {
 			allowed: true,
 			resetTime: now + config.windowSizeMs,

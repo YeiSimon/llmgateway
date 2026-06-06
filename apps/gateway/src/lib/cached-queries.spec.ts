@@ -31,7 +31,7 @@ import {
 /**
  * These tests verify that all cached query functions return correct data.
  *
- * IMPORTANT: Cache resilience (proving queries work from Redis when Postgres is down)
+ * IMPORTANT: Cache resilience (proving queries work from Valkey when Postgres is down)
  * is tested in packages/db/src/cdb-resilience.spec.ts. Those tests prove that the
  * select builder pattern (db.select().from()) works with Drizzle's cache layer.
  *

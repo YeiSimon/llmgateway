@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 
 import {
 	buildBreakerKey,
@@ -10,9 +10,9 @@ import {
 	resetBreaker,
 } from "./circuit-breaker.js";
 
-// Mock Redis and logger before importing the module under test
+// Mock Valkey and logger before importing the module under test
 vi.mock("@llmgateway/cache", () => ({
-	redisClient: {
+	valkeyClient: {
 		get: vi.fn(),
 		set: vi.fn(),
 	},
@@ -26,8 +26,8 @@ vi.mock("@llmgateway/instrumentation", () => ({
 	circuitBreakerState: { labels: vi.fn(() => ({ set: vi.fn() })) },
 }));
 
-const mockGet = redisClient.get as ReturnType<typeof vi.fn>;
-const mockSet = redisClient.set as ReturnType<typeof vi.fn>;
+const mockGet = valkeyClient.get as ReturnType<typeof vi.fn>;
+const mockSet = valkeyClient.set as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
 	vi.clearAllMocks();

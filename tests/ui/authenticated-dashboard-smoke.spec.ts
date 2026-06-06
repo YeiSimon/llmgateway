@@ -47,7 +47,7 @@ async function expectDashboardShell(page: Page, expectProject = true) {
 async function expectDashboardPage(
 	page: Page,
 	path: string,
-	heading: RegExp,
+	heading: RegExp | undefined,
 	expectProject = true,
 ) {
 	await authenticate(page);
@@ -55,9 +55,11 @@ async function expectDashboardPage(
 	const response = await page.goto(path);
 
 	expect(response?.status(), `${path} status`).toBeLessThan(400);
-	await expect(
-		page.getByRole("heading", { name: heading }).first(),
-	).toBeVisible();
+	if (heading) {
+		await expect(
+			page.getByRole("heading", { name: heading }).first(),
+		).toBeVisible();
+	}
 	await expectDashboardShell(page, expectProject);
 }
 
@@ -79,7 +81,7 @@ test("dashboard root redirects to the seeded project dashboard", async ({
 });
 
 test.describe("authenticated dashboard pages", () => {
-	const routes: Array<{ path: string; heading: RegExp; text?: RegExp }> = [
+	const routes: Array<{ path: string; heading?: RegExp; text?: RegExp }> = [
 		{
 			path: `/dashboard/${orgId}/${projectId}`,
 			heading: /^Dashboard$/i,
@@ -101,9 +103,34 @@ test.describe("authenticated dashboard pages", () => {
 			text: /Create and manage API keys/i,
 		},
 		{
+			path: `/dashboard/${orgId}/${projectId}/api-keys/api-key-test/iam`,
+			heading: /^IAM Rules$/i,
+			text: /Smoke Test Key/i,
+		},
+		{
+			path: `/dashboard/${orgId}/${projectId}/agents`,
+			heading: /^Agents$/i,
+			text: /Monitor your AI coding agents/i,
+		},
+		{
+			path: `/dashboard/${orgId}/${projectId}/model-usage`,
+			heading: /^Usage by model$/i,
+			text: /Breakdown by model/i,
+		},
+		{
 			path: `/dashboard/${orgId}/${projectId}/settings/preferences`,
 			heading: /^Preferences$/i,
 			text: /Project Name/i,
+		},
+		{
+			path: `/dashboard/${orgId}/${projectId}/settings/account`,
+			heading: /^Account$/i,
+			text: /Account Information/i,
+		},
+		{
+			path: `/dashboard/${orgId}/${projectId}/settings/security`,
+			heading: /^Security$/i,
+			text: /Change Password/i,
 		},
 		{
 			path: `/dashboard/${orgId}/org/billing`,
@@ -111,14 +138,43 @@ test.describe("authenticated dashboard pages", () => {
 			text: /Available Balance/i,
 		},
 		{
+			path: `/dashboard/${orgId}/org/discounts`,
+			text: /Your Discounts/i,
+		},
+		{
+			path: `/dashboard/${orgId}/org/master-keys`,
+			heading: /^Master Keys$/i,
+			text: /Enterprise Feature|Create Master Key/i,
+		},
+		{
+			path: `/dashboard/${orgId}/org/policies`,
+			heading: /^Policies$/i,
+			text: /data retention settings/i,
+		},
+		{
+			path: `/dashboard/${orgId}/org/preferences`,
+			heading: /^Preferences$/i,
+			text: /Organization Name/i,
+		},
+		{
 			path: `/dashboard/${orgId}/org/provider-keys`,
 			heading: /^Provider Keys$/i,
 			text: /Add Provider Key/i,
 		},
 		{
+			path: `/dashboard/${orgId}/org/referrals`,
+			heading: /^Referrals$/i,
+			text: /Referral/i,
+		},
+		{
 			path: `/dashboard/${orgId}/org/team`,
 			heading: /^Team$/i,
 			text: /Team Members/i,
+		},
+		{
+			path: `/dashboard/${orgId}/org/transactions`,
+			heading: /^Transactions$/i,
+			text: /Transaction History/i,
 		},
 	];
 
@@ -134,6 +190,42 @@ test.describe("authenticated dashboard pages", () => {
 			if (route.text) {
 				await expect(page.getByText(route.text).first()).toBeVisible();
 			}
+		});
+	}
+});
+
+test.describe("authenticated dashboard redirects", () => {
+	const redirects: Array<{
+		path: string;
+		target: RegExp;
+		heading: RegExp;
+	}> = [
+		{
+			path: `/dashboard/${orgId}/${projectId}/sessions`,
+			target: new RegExp(`/dashboard/${orgId}/${projectId}/agents`),
+			heading: /^Agents$/i,
+		},
+		{
+			path: `/dashboard/${orgId}/${projectId}/settings`,
+			target: new RegExp(
+				`/dashboard/${orgId}/${projectId}/settings/preferences`,
+			),
+			heading: /^Preferences$/i,
+		},
+	];
+
+	for (const route of redirects) {
+		test(`${route.path} redirects`, async ({ page }) => {
+			await authenticate(page);
+
+			const response = await page.goto(route.path);
+
+			expect(response?.status(), `${route.path} status`).toBeLessThan(400);
+			await expect(page).toHaveURL(route.target);
+			await expect(
+				page.getByRole("heading", { name: route.heading }).first(),
+			).toBeVisible();
+			await expectDashboardShell(page);
 		});
 	}
 });

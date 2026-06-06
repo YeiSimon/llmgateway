@@ -7,7 +7,7 @@ import {
 } from "@llmgateway/instrumentation";
 import { logger } from "@llmgateway/logger";
 
-import { redisClient } from "./auth/config.js";
+import { valkeyClient } from "./auth/config.js";
 import { app } from "./index.js";
 import {
 	sendInstallationBeacon,
@@ -127,9 +127,9 @@ const gracefulShutdown = async (signal: string, server: ServerType) => {
 		await closeDatabase();
 		logger.info("Database connection closed");
 
-		logger.info("Closing Redis connection");
-		await redisClient.quit();
-		logger.info("Redis connection closed");
+		logger.info("Closing Valkey connection");
+		await valkeyClient.quit();
+		logger.info("Valkey connection closed");
 
 		// Shutdown instrumentation last to ensure all spans are flushed
 		if (sdk) {

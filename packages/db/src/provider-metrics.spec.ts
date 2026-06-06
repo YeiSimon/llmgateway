@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 
 import { db } from "./db.js";
 import {
@@ -13,7 +13,7 @@ import { provider, model, modelProviderMapping } from "./schema.js";
 
 describe("provider-metrics", () => {
 	beforeEach(async () => {
-		await redisClient.flushdb();
+		await valkeyClient.flushdb();
 		await db.delete(modelProviderMapping);
 		await db.delete(model);
 		await db.delete(provider);

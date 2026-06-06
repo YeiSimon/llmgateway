@@ -15,7 +15,7 @@ import {
 import { logger } from "@llmgateway/logger";
 import { HealthChecker } from "@llmgateway/shared";
 
-import { redisClient } from "./auth/config.js";
+import { valkeyClient } from "./auth/config.js";
 import { authHandler } from "./auth/handler.js";
 import { tracingMiddleware } from "./middleware/tracing.js";
 import { beacon } from "./routes/beacon.js";
@@ -163,7 +163,7 @@ const root = createRoute({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
-								redis: z.object({
+								valkey: z.object({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
@@ -187,7 +187,7 @@ const root = createRoute({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
-								redis: z.object({
+								valkey: z.object({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
@@ -196,7 +196,8 @@ const root = createRoute({
 						.openapi({}),
 				},
 			},
-			description: "Service unavailable - Redis or database connection failed.",
+			description:
+				"Service unavailable - Valkey or database connection failed.",
 		},
 	},
 });
@@ -205,7 +206,7 @@ app.openapi(root, async (c) => {
 	const TIMEOUT_MS = Number(process.env.TIMEOUT_MS) || 5000;
 
 	const healthChecker = new HealthChecker({
-		redisClient,
+		valkeyClient,
 		db,
 		logger,
 	});

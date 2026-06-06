@@ -215,7 +215,7 @@ function responseFor(
 	}
 
 	if (pathname === `/orgs/${organization.id}/discounts`) {
-		return jsonResponse({ discounts: [] });
+		return jsonResponse({ orgDiscounts: [], globalDiscounts: [] });
 	}
 
 	if (pathname === `/projects/${project.id}`) {

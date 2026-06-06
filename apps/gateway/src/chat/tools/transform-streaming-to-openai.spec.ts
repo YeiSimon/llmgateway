@@ -7,7 +7,7 @@ const { warn } = vi.hoisted(() => ({
 }));
 
 vi.mock("@llmgateway/cache", () => ({
-	redisClient: {
+	valkeyClient: {
 		get: vi.fn(),
 		setex: vi.fn(),
 	},

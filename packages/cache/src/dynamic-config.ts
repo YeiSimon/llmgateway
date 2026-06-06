@@ -13,14 +13,14 @@ export class DynamicConfig {
 			this.subscriber = new Redis(redisUrlOrClient);
 		} else {
 			this.subscriber = new Redis({
-				host: process.env.REDIS_HOST ?? "localhost",
-				port: Number(process.env.REDIS_PORT) || 6379,
-				password: process.env.REDIS_PASSWORD,
+				host: process.env.VALKEY_HOST ?? "localhost",
+				port: Number(process.env.VALKEY_PORT) || 6379,
+				password: process.env.VALKEY_PASSWORD,
 			});
 		}
 
 		this.subscriber.on("error", (err) =>
-			logger.error("DynamicConfig subscriber error", err),
+			logger.error("DynamicConfig Valkey subscriber error", err),
 		);
 	}
 

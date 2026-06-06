@@ -1,4 +1,4 @@
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
 import { estimateTokens } from "./estimate-tokens.js";
@@ -322,8 +322,8 @@ export function parseProviderResponse(
 									thought_signature: part.thoughtSignature,
 								},
 							};
-							// Store in Redis for server-side retrieval since OpenAI SDKs don't preserve extra_content
-							redisClient
+							// Store in Valkey for server-side retrieval since OpenAI SDKs don't preserve extra_content
+							valkeyClient
 								.setex(
 									`thought_signature:${toolCall.id}`,
 									86400, // 1 day expiration

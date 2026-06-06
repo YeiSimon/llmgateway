@@ -1,4 +1,4 @@
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { circuitBreakerState } from "@llmgateway/instrumentation";
 import { logger } from "@llmgateway/logger";
 
@@ -41,14 +41,19 @@ function parseState(raw: string | null): BreakerState {
 }
 
 async function getState(key: string): Promise<BreakerState> {
-	const raw = await redisClient.get(redisKey(key));
+	const raw = await valkeyClient.get(redisKey(key));
 	return parseState(raw);
 }
 
 async function setState(key: string, state: BreakerState): Promise<void> {
 	// TTL: keep breaker state alive for 2× recovery window so it auto-expires if unused
 	const ttlSeconds = Math.ceil((DEFAULT_CONFIG.recoveryMs * 2) / 1000);
-	await redisClient.set(redisKey(key), JSON.stringify(state), "EX", ttlSeconds);
+	await valkeyClient.set(
+		redisKey(key),
+		JSON.stringify(state),
+		"EX",
+		ttlSeconds,
+	);
 }
 
 export async function isBreakerOpen(

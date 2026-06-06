@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { redisClient } from "./redis.js";
 import {
 	SWR_PREFIX,
 	SWR_TABLE_INDEX_PREFIX,
@@ -8,16 +7,17 @@ import {
 	invalidateSwrByTables,
 	swrWrap,
 } from "./swr.js";
+import { valkeyClient } from "./valkey.js";
 
 describe("swrWrap", () => {
 	beforeEach(async () => {
-		await redisClient.flushdb();
+		await valkeyClient.flushdb();
 		delete process.env.SWR_STALE_TTL_SECONDS;
 	});
 
 	afterEach(async () => {
 		delete process.env.SWR_STALE_TTL_SECONDS;
-		await redisClient.flushdb();
+		await valkeyClient.flushdb();
 	});
 
 	it("returns fetcher value and writes to SWR mirror with configured TTL + table index", async () => {
@@ -26,18 +26,18 @@ describe("swrWrap", () => {
 		);
 		expect(value).toEqual({ hello: "world" });
 
-		const mirror = await redisClient.get(`${SWR_PREFIX}test:key:1`);
+		const mirror = await valkeyClient.get(`${SWR_PREFIX}test:key:1`);
 		expect(mirror).not.toBeNull();
 		expect(JSON.parse(mirror!)).toEqual({ hello: "world" });
 
-		const ttl = await redisClient.ttl(`${SWR_PREFIX}test:key:1`);
+		const ttl = await valkeyClient.ttl(`${SWR_PREFIX}test:key:1`);
 		expect(ttl).toBeGreaterThan(0);
 		expect(ttl).toBeLessThanOrEqual(getSwrStaleTtlSeconds());
 
-		const membersA = await redisClient.smembers(
+		const membersA = await valkeyClient.smembers(
 			`${SWR_TABLE_INDEX_PREFIX}table_a`,
 		);
-		const membersB = await redisClient.smembers(
+		const membersB = await valkeyClient.smembers(
 			`${SWR_TABLE_INDEX_PREFIX}table_b`,
 		);
 		expect(membersA).toContain(`${SWR_PREFIX}test:key:1`);
@@ -73,7 +73,7 @@ describe("swrWrap", () => {
 		);
 		expect(primed).toBeUndefined();
 
-		const mirror = await redisClient.get(`${SWR_PREFIX}test:key:undef`);
+		const mirror = await valkeyClient.get(`${SWR_PREFIX}test:key:undef`);
 		expect(mirror).not.toBeNull();
 
 		const dbError = new Error("postgres unavailable");
@@ -98,11 +98,11 @@ describe("swrWrap", () => {
 
 		await invalidateSwrByTables(["table_a"]);
 
-		expect(await redisClient.get(`${SWR_PREFIX}test:key:inv1`)).toBeNull();
-		expect(await redisClient.get(`${SWR_PREFIX}test:key:inv2`)).toBeNull();
-		expect(await redisClient.get(`${SWR_PREFIX}test:key:inv3`)).not.toBeNull();
+		expect(await valkeyClient.get(`${SWR_PREFIX}test:key:inv1`)).toBeNull();
+		expect(await valkeyClient.get(`${SWR_PREFIX}test:key:inv2`)).toBeNull();
+		expect(await valkeyClient.get(`${SWR_PREFIX}test:key:inv3`)).not.toBeNull();
 
-		expect(await redisClient.exists(`${SWR_TABLE_INDEX_PREFIX}table_a`)).toBe(
+		expect(await valkeyClient.exists(`${SWR_TABLE_INDEX_PREFIX}table_a`)).toBe(
 			0,
 		);
 	});
@@ -112,7 +112,7 @@ describe("swrWrap", () => {
 		expect(getSwrStaleTtlSeconds()).toBe(120);
 
 		await swrWrap("test:key:ttl", ["table_a"], () => Promise.resolve({ v: 1 }));
-		const ttl = await redisClient.ttl(`${SWR_PREFIX}test:key:ttl`);
+		const ttl = await valkeyClient.ttl(`${SWR_PREFIX}test:key:ttl`);
 		expect(ttl).toBeGreaterThan(0);
 		expect(ttl).toBeLessThanOrEqual(120);
 	});

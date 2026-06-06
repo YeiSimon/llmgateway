@@ -1,4 +1,4 @@
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
 import { calculatePromptTokensFromMessages } from "./calculate-prompt-tokens.js";
@@ -562,10 +562,10 @@ export function transformStreamingToOpenai(
 								: undefined,
 						});
 
-						// Cache thoughtSignature in Redis for server-side retrieval in multi-turn conversations
+						// Cache thoughtSignature in Valkey for server-side retrieval in multi-turn conversations
 						// This is especially important when OpenAI SDKs don't preserve extra_content/provider_extra
 						if (sig) {
-							redisClient
+							valkeyClient
 								.setex(
 									`thought_signature:${toolCallId}`,
 									86400, // 1 day expiration

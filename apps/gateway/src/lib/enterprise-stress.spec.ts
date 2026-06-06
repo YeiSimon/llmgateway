@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { app } from "@/app.js";
 import { createGatewayApiTestHarness } from "@/test-utils/gateway-api-test-harness.js";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { db, eq, tables } from "@llmgateway/db";
 
 import { resetBreaker } from "./circuit-breaker.js";
@@ -63,15 +63,15 @@ function chatRequest(message: string) {
 
 async function flushRateLimitKeys() {
 	// Delete all sliding-window ZSET keys for the test org
-	const keys = await redisClient.keys(`rl2:${ORG_ID}:*`);
+	const keys = await valkeyClient.keys(`rl2:${ORG_ID}:*`);
 	if (keys.length > 0) {
-		await redisClient.del(...keys);
+		await valkeyClient.del(...keys);
 	}
 
 	// Delete budget keys too
-	const budgetKeys = await redisClient.keys(`budget:${ORG_ID}:*`);
+	const budgetKeys = await valkeyClient.keys(`budget:${ORG_ID}:*`);
 	if (budgetKeys.length > 0) {
-		await redisClient.del(...budgetKeys);
+		await valkeyClient.del(...budgetKeys);
 	}
 }
 
@@ -253,7 +253,7 @@ describe("enterprise gateway stress tests", () => {
 
 		it("transitions to half-open after recovery period and closes on success", async () => {
 			// Trip the circuit by directly writing an open state to Redis
-			await redisClient.set(
+			await valkeyClient.set(
 				"cb:llmgateway:custom",
 				JSON.stringify({
 					state: "open",
@@ -282,7 +282,7 @@ describe("enterprise gateway stress tests", () => {
 
 		it("reopens immediately if the half-open probe fails", async () => {
 			// Manually set half-open state
-			await redisClient.set(
+			await valkeyClient.set(
 				"cb:llmgateway:custom",
 				JSON.stringify({
 					state: "half-open",
@@ -321,11 +321,11 @@ describe("enterprise gateway stress tests", () => {
 			// Budget key format: budget:${orgId}:api_key:${lineageId}:${period}:${bucket}
 			const now = new Date();
 			const monthly = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-			const keys = await redisClient.keys(`budget:${ORG_ID}:api_key:*`);
+			const keys = await valkeyClient.keys(`budget:${ORG_ID}:api_key:*`);
 			const monthlyKey = keys.find((k) => k.includes(monthly));
 
 			if (monthlyKey) {
-				const value = parseFloat((await redisClient.get(monthlyKey)) ?? "0");
+				const value = parseFloat((await valkeyClient.get(monthlyKey)) ?? "0");
 				// Mock response has 10 prompt + 20 completion = 30 tokens
 				expect(value).toBeGreaterThan(0);
 			}
@@ -344,7 +344,7 @@ describe("enterprise gateway stress tests", () => {
 			const now = new Date();
 			const monthly = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 			const budgetKey = `budget:${ORG_ID}:api_key:${API_KEY_ID}:monthly:${monthly}`;
-			await redisClient.set(budgetKey, "999999", "EX", 3600);
+			await valkeyClient.set(budgetKey, "999999", "EX", 3600);
 
 			// Request should be blocked — gateway error format: { error: true, status, message }
 			const r = await chatRequest("over budget");

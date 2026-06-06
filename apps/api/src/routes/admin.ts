@@ -9871,16 +9871,16 @@ admin.openapi(getDevpassSubscriber, async (c) => {
 
 // ─── Settings pub/sub (B3) ───────────────────────────────────────────────────
 
-const settingsRedis = new Redis({
-	host: process.env.REDIS_HOST ?? "localhost",
-	port: Number(process.env.REDIS_PORT) || 6379,
-	password: process.env.REDIS_PASSWORD,
+const settingsValkey = new Redis({
+	host: process.env.VALKEY_HOST ?? "localhost",
+	port: Number(process.env.VALKEY_PORT) || 6379,
+	password: process.env.VALKEY_PASSWORD,
 });
 
 const patchSettingsRoute = createRoute({
 	summary: "Upsert a system setting",
 	description:
-		"Upsert a key/value entry in system_settings and publish the change to all gateway instances via Redis pub/sub.",
+		"Upsert a key/value entry in system_settings and publish the change to all gateway instances via Valkey pub/sub.",
 	operationId: "patchAdminSettings",
 	method: "patch",
 	path: "/settings",
@@ -9927,7 +9927,7 @@ admin.openapi(patchSettingsRoute, async (c) => {
 			set: { value, category, updatedAt: new Date(), updatedBy: user.id },
 		});
 
-	await DynamicConfig.publish(settingsRedis, key, value);
+	await DynamicConfig.publish(settingsValkey, key, value);
 
 	return c.json({ ok: true, key });
 });

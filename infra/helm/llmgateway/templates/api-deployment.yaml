@@ -30,14 +30,14 @@ spec:
                 echo "Waiting for PostgreSQL..."
                 sleep 2
               done
-        - name: wait-for-redis
+        - name: wait-for-valkey
           image: busybox:1.37
           command:
             - sh
             - -c
             - |
-              until nc -z {{ include "llmgateway.redis.host" . }} {{ include "llmgateway.redis.port" . }}; do
-                echo "Waiting for Redis..."
+              until nc -z {{ include "llmgateway.valkey.host" . }} {{ include "llmgateway.valkey.port" . }}; do
+                echo "Waiting for Valkey..."
                 sleep 2
               done
       containers:

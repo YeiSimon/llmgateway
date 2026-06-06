@@ -8,7 +8,7 @@ This file provides guidance to AI agents when working with code in this reposito
 
 - `pnpm install` - Install all dependencies
 - `pnpm setup` - Full development environment setup (starts Docker, syncs DB, seeds data)
-- `docker compose up -d` - Start PostgreSQL and Redis services
+- `docker compose up -d` - Start PostgreSQL and Valkey services
 
 ### Development
 
@@ -96,7 +96,7 @@ NOTE: these commands can only be run in the root directory of the repository, no
 
 - **Framework**: Hono (lightweight web framework)
 - **Database**: PostgreSQL with Drizzle ORM
-- **Caching**: Redis
+- **Caching**: Valkey
 - **Authentication**: Better Auth with passkey support
 - **Validation**: Zod schemas
 - **API Documentation**: OpenAPI/Swagger
@@ -193,7 +193,7 @@ Run commands from the repository root only.
 - Docs: http://localhost:3005
 - Admin: http://localhost:3006
 - PostgreSQL: localhost:5432
-- Redis: localhost:6379
+- Valkey: localhost:6379
 
 ## Folder Structure
 
@@ -215,7 +215,7 @@ Run commands from the repository root only.
 - Multi-provider support (OpenAI, Anthropic, Google Vertex AI, etc.)
 - OpenAI-compatible API interface
 - Request routing and load balancing
-- Response caching with Redis
+- Response caching with Valkey
 - Usage tracking and cost analytics
 
 ### Management Platform

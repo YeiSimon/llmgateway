@@ -35,7 +35,7 @@ If you prefer a one-off `docker run`, use named volumes instead of `~/some-host-
 
 ```bash
 docker volume create llmgateway_postgres
-docker volume create llmgateway_redis
+docker volume create llmgateway_valkey
 
 docker run -d \
   --name llmgateway \
@@ -47,7 +47,7 @@ docker run -d \
   -p 4001:4001 \
   -p 4002:4002 \
   -v llmgateway_postgres:/var/lib/postgresql/data \
-  -v llmgateway_redis:/var/lib/redis \
+  -v llmgateway_valkey:/var/lib/valkey \
   -e AUTH_SECRET="$LLM_GATEWAY_SECRET" \
   -e GATEWAY_API_KEY_HASH_SECRET="$GATEWAY_API_KEY_HASH_SECRET" \
   ghcr.io/theopenco/llmgateway-unified:latest

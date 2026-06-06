@@ -129,7 +129,7 @@ const comparisonData = [
 			},
 			{
 				title: "Request caching",
-				description: "Built-in Redis caching for responses",
+				description: "Built-in Valkey caching for responses",
 				llmgateway: true,
 				litellm: "Manual setup required",
 			},

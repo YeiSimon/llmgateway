@@ -166,24 +166,24 @@ PostgreSQL user
 {{- end }}
 
 {{/*
-Redis host
+Valkey host
 */}}
-{{- define "llmgateway.redis.host" -}}
-{{- if .Values.redis.enabled }}
-{{- printf "%s-redis" (include "llmgateway.fullname" .) }}
+{{- define "llmgateway.valkey.host" -}}
+{{- if .Values.valkey.enabled }}
+{{- printf "%s-valkey" (include "llmgateway.fullname" .) }}
 {{- else }}
-{{- .Values.externalRedis.host }}
+{{- .Values.externalValkey.host }}
 {{- end }}
 {{- end }}
 
 {{/*
-Redis port
+Valkey port
 */}}
-{{- define "llmgateway.redis.port" -}}
-{{- if .Values.redis.enabled }}
-{{- .Values.redis.port | default 6379 }}
+{{- define "llmgateway.valkey.port" -}}
+{{- if .Values.valkey.enabled }}
+{{- .Values.valkey.port | default 6379 }}
 {{- else }}
-{{- .Values.externalRedis.port | default 6379 }}
+{{- .Values.externalValkey.port | default 6379 }}
 {{- end }}
 {{- end }}
 

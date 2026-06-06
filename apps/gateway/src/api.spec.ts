@@ -28,7 +28,7 @@ describe("api", () => {
 		expect(data).toHaveProperty("version");
 		expect(data).toHaveProperty("health");
 		expect(data.health).toHaveProperty("status");
-		expect(data.health).toHaveProperty("redis");
+		expect(data.health).toHaveProperty("valkey");
 		expect(data.health).toHaveProperty("database");
 	});
 

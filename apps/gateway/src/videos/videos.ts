@@ -28,7 +28,7 @@ import {
 	type RoutingMetadata,
 	type VideoPricingContext,
 } from "@llmgateway/actions";
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import {
 	and,
 	db,
@@ -1865,7 +1865,7 @@ async function cacheVideoProxySourceUrl(
 	sourceUrl: string,
 ): Promise<void> {
 	try {
-		await redisClient.set(
+		await valkeyClient.set(
 			getVideoProxyRedisKey(logId),
 			sourceUrl,
 			"EX",
@@ -2076,7 +2076,7 @@ async function getVideoSourceUrlFromCacheOrLog(
 	log: LogRecord,
 ): Promise<string | null> {
 	try {
-		const cachedUrl = await redisClient.get(getVideoProxyRedisKey(log.id));
+		const cachedUrl = await valkeyClient.get(getVideoProxyRedisKey(log.id));
 		if (cachedUrl) {
 			return cachedUrl;
 		}

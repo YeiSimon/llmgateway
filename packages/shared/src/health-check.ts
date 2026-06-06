@@ -1,6 +1,6 @@
 export interface HealthCheckResult {
 	status: "ok" | "error";
-	redis: {
+	valkey: {
 		connected: boolean;
 		error?: string;
 	};
@@ -16,7 +16,7 @@ export interface HealthCheckOptions {
 }
 
 export interface HealthCheckDependencies {
-	redisClient: {
+	valkeyClient: {
 		ping: () => Promise<string>;
 	};
 	db: {
@@ -54,23 +54,23 @@ export class HealthChecker {
 		options: HealthCheckOptions = {},
 	): Promise<HealthCheckResult> {
 		const { skipChecks = [], timeoutMs = 3000 } = options;
-		const { redisClient, db, logger } = this.dependencies;
+		const { valkeyClient, db, logger } = this.dependencies;
 
 		const health: HealthCheckResult = {
 			status: "ok",
-			redis: { connected: false, error: undefined },
+			valkey: { connected: false, error: undefined },
 			database: { connected: false, error: undefined },
 		};
 
 		// Run health checks in parallel
 		const healthChecks = await Promise.allSettled([
-			// Redis check
-			skipChecks.includes("redis")
-				? Promise.resolve({ type: "redis" as const, skipped: true })
+			// Valkey check
+			skipChecks.includes("valkey")
+				? Promise.resolve({ type: "valkey" as const, skipped: true })
 				: this.withTimeout(
-						redisClient
+						valkeyClient
 							.ping()
-							.then(() => ({ type: "redis" as const, success: true })),
+							.then(() => ({ type: "valkey" as const, success: true })),
 						timeoutMs,
 					),
 			// Database check
@@ -90,16 +90,16 @@ export class HealthChecker {
 				const check = result.value;
 				if ("skipped" in check && check.skipped) {
 					// Set as connected when skipped
-					if (check.type === "redis") {
-						health.redis.connected = true;
+					if (check.type === "valkey") {
+						health.valkey.connected = true;
 					}
 					if (check.type === "database") {
 						health.database.connected = true;
 					}
 				} else if ("success" in check && check.success) {
 					// Set as connected when successful
-					if (check.type === "redis") {
-						health.redis.connected = true;
+					if (check.type === "valkey") {
+						health.valkey.connected = true;
 					}
 					if (check.type === "database") {
 						health.database.connected = true;
@@ -113,15 +113,15 @@ export class HealthChecker {
 						: String(result.reason);
 
 				// Determine which check failed based on the error or order
-				// Since we know the order: [redis, database]
+				// Since we know the order: [valkey, database]
 				const checkIndex = healthChecks.indexOf(result);
 				if (checkIndex === 0) {
-					// Redis check failed
+					// Valkey check failed
 					health.status = "error";
-					health.redis.error = errorMessage.includes("timed out")
-						? "Redis check timed out"
-						: "Redis connection failed";
-					logger.error("Redis healthcheck failed", result.reason);
+					health.valkey.error = errorMessage.includes("timed out")
+						? "Valkey check timed out"
+						: "Valkey connection failed";
+					logger.error("Valkey healthcheck failed", result.reason);
 				} else if (checkIndex === 1) {
 					// Database check failed
 					health.status = "error";
@@ -146,8 +146,8 @@ export class HealthChecker {
 		let message = "OK";
 		if (health.status === "error") {
 			const failedSystems: string[] = [];
-			if (health.redis.error) {
-				failedSystems.push("Redis");
+			if (health.valkey.error) {
+				failedSystems.push("Valkey");
 			}
 			if (health.database.error) {
 				failedSystems.push("Database");

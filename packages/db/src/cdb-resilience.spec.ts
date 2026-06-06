@@ -3,10 +3,9 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 
 import { db } from "./db.js";
-import { RedisCache } from "./redis-cache.js";
 import { relations } from "./relations.js";
 import {
 	apiKey,
@@ -17,6 +16,7 @@ import {
 	userOrganization,
 	project,
 } from "./schema.js";
+import { ValkeyCache } from "./valkey-cache.js";
 
 /**
  * This test verifies that the cached database client (cdb) continues to serve
@@ -37,14 +37,14 @@ describe("cdb resilience - cached queries work without Postgres", () => {
 	const testIamRuleId = "test-iam-rule-resilience";
 
 	// Shared Redis cache instance to ensure cache hits work across pool instances
-	let sharedCache: RedisCache;
+	let sharedCache: ValkeyCache;
 
 	beforeEach(async () => {
 		// Clear the Redis cache
-		await redisClient.flushdb();
+		await valkeyClient.flushdb();
 
 		// Create shared cache instance
-		sharedCache = new RedisCache(redisClient);
+		sharedCache = new ValkeyCache(valkeyClient);
 
 		// Clean up test data using regular db
 		await db.delete(apiKeyIamRule);

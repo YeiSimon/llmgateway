@@ -50,7 +50,7 @@ export function extractToolCalls(
 		case "quartz": {
 			// Google AI Studio tool calls in streaming
 			// Include thoughtSignature if present (required for Gemini 3 multi-turn conversations)
-			// Note: Redis caching of thought_signature happens in transform-streaming-to-openai.ts
+			// Note: Valkey caching of thought_signature happens in transform-streaming-to-openai.ts
 			// where the actual tool_call ID sent to clients is generated
 			const parts = data.candidates?.[0]?.content?.parts ?? [];
 			return (

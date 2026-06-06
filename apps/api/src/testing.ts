@@ -18,7 +18,7 @@ const credentials = {
 };
 
 export async function deleteAll() {
-	// await redisClient.flushdb();
+	// await valkeyClient.flushdb();
 
 	await Promise.all([
 		db.delete(tables.log),

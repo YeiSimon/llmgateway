@@ -9,10 +9,10 @@ import type { ServerTypes } from "@/vars.js";
 
 export const circuitBreaker = new OpenAPIHono<ServerTypes>();
 
-const redis = new Redis({
-	host: process.env.REDIS_HOST ?? "localhost",
-	port: Number(process.env.REDIS_PORT) || 6379,
-	password: process.env.REDIS_PASSWORD,
+const valkey = new Redis({
+	host: process.env.VALKEY_HOST ?? "localhost",
+	port: Number(process.env.VALKEY_PORT) || 6379,
+	password: process.env.VALKEY_PASSWORD,
 });
 
 const CLOSED_STATE = JSON.stringify({
@@ -65,7 +65,7 @@ circuitBreaker.openapi(resetRoute, async (c) => {
 	}
 
 	const { key } = c.req.valid("param");
-	await redis.set(`cb:${key}`, CLOSED_STATE, "EX", 120);
+	await valkey.set(`cb:${key}`, CLOSED_STATE, "EX", 120);
 
 	return c.json({ ok: true, key });
 });

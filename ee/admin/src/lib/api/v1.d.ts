@@ -35,7 +35,7 @@ export interface paths {
                                     connected: boolean;
                                     error?: string;
                                 };
-                                redis: {
+                                valkey: {
                                     connected: boolean;
                                     error?: string;
                                 };
@@ -43,7 +43,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Service unavailable - Redis or database connection failed. */
+                /** @description Service unavailable - Valkey or database connection failed. */
                 503: {
                     headers: {
                         [name: string]: unknown;
@@ -58,7 +58,7 @@ export interface paths {
                                     connected: boolean;
                                     error?: string;
                                 };
-                                redis: {
+                                valkey: {
                                     connected: boolean;
                                     error?: string;
                                 };

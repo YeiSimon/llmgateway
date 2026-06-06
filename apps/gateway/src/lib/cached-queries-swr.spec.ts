@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { redisClient, SWR_PREFIX } from "@llmgateway/cache";
+import { valkeyClient, SWR_PREFIX } from "@llmgateway/cache";
 import {
 	cdb,
 	db,
@@ -37,20 +37,20 @@ const testProviderKeyAnthropic = "test-provider-key-swr-anthropic";
 const testIamRuleId = "test-iam-rule-swr";
 
 async function flushDrizzleCache(): Promise<void> {
-	const keys = await redisClient.keys("drizzle:cache:*");
+	const keys = await valkeyClient.keys("drizzle:cache:*");
 	if (keys.length) {
-		await redisClient.unlink(...keys);
+		await valkeyClient.unlink(...keys);
 	}
-	const tableKeys = await redisClient.keys("drizzle:table_keys:*");
+	const tableKeys = await valkeyClient.keys("drizzle:table_keys:*");
 	if (tableKeys.length) {
-		await redisClient.unlink(...tableKeys);
+		await valkeyClient.unlink(...tableKeys);
 	}
 }
 
 async function flushSwrOnly(): Promise<void> {
-	const keys = await redisClient.keys("swr:*");
+	const keys = await valkeyClient.keys("swr:*");
 	if (keys.length) {
-		await redisClient.unlink(...keys);
+		await valkeyClient.unlink(...keys);
 	}
 }
 
@@ -68,8 +68,8 @@ describe("cached-queries SWR integration", () => {
 		await db.delete(organization).where(eq(organization.id, testZeroOrgId));
 		await db.delete(user).where(eq(user.id, testUserId));
 
-		// Flush redis so SWR + Drizzle caches are fresh
-		await redisClient.flushdb();
+		// Flush valkey so SWR + Drizzle caches are fresh
+		await valkeyClient.flushdb();
 
 		// Seed test data
 		await db.insert(user).values({
@@ -158,11 +158,11 @@ describe("cached-queries SWR integration", () => {
 			const result = await findApiKeyByToken(testApiKeyToken);
 			expect(result?.id).toBe(testApiKeyId);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}apiKey:token:${getApiKeyFingerprint(testApiKeyToken)}`,
 			);
 			expect(mirror).not.toBeNull();
-			const raw = await redisClient.get(
+			const raw = await valkeyClient.get(
 				`${SWR_PREFIX}apiKey:token:${testApiKeyToken}`,
 			);
 			expect(raw).toBeNull();
@@ -172,7 +172,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findProjectById(testProjectId);
 			expect(result?.id).toBe(testProjectId);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}project:${testProjectId}`,
 			);
 			expect(mirror).not.toBeNull();
@@ -182,7 +182,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findOrganizationById(testOrgId);
 			expect(result?.id).toBe(testOrgId);
 
-			const mirror = await redisClient.get(`${SWR_PREFIX}org:${testOrgId}`);
+			const mirror = await valkeyClient.get(`${SWR_PREFIX}org:${testOrgId}`);
 			expect(mirror).not.toBeNull();
 		});
 
@@ -190,7 +190,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findActiveIamRules(testApiKeyId);
 			expect(result).toHaveLength(1);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}iamRules:${testApiKeyId}`,
 			);
 			expect(mirror).not.toBeNull();
@@ -200,7 +200,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findProviderKey(testOrgId, "openai");
 			expect(result).toBeDefined();
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}providerKey:${testOrgId}:openai`,
 			);
 			expect(mirror).not.toBeNull();
@@ -210,7 +210,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findActiveProviderKeys(testOrgId);
 			expect(result.length).toBeGreaterThan(0);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}providerKey:active:${testOrgId}`,
 			);
 			expect(mirror).not.toBeNull();
@@ -223,7 +223,7 @@ describe("cached-queries SWR integration", () => {
 			]);
 			expect(result).toHaveLength(2);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}providerKey:byProviders:${testOrgId}:anthropic,openai`,
 			);
 			expect(mirror).not.toBeNull();
@@ -233,7 +233,7 @@ describe("cached-queries SWR integration", () => {
 			const result = await findUserFromOrganization(testOrgId);
 			expect(result?.user.id).toBe(testUserId);
 
-			const mirror = await redisClient.get(
+			const mirror = await valkeyClient.get(
 				`${SWR_PREFIX}userFromOrg:${testOrgId}`,
 			);
 			expect(mirror).not.toBeNull();
@@ -300,7 +300,7 @@ describe("cached-queries SWR integration", () => {
 		it("updating a row via cdb clears SWR mirrors for that table", async () => {
 			await findProjectById(testProjectId);
 			expect(
-				await redisClient.get(`${SWR_PREFIX}project:${testProjectId}`),
+				await valkeyClient.get(`${SWR_PREFIX}project:${testProjectId}`),
 			).not.toBeNull();
 
 			await cdb
@@ -309,7 +309,7 @@ describe("cached-queries SWR integration", () => {
 				.where(eq(project.id, testProjectId));
 
 			expect(
-				await redisClient.get(`${SWR_PREFIX}project:${testProjectId}`),
+				await valkeyClient.get(`${SWR_PREFIX}project:${testProjectId}`),
 			).toBeNull();
 		});
 	});

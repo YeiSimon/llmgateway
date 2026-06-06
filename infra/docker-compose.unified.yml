@@ -13,10 +13,10 @@ services:
       - "4001:4001" # Gateway
       - "4002:4002" # API
       - "5432:5432" # PostgreSQL
-      - "6379:6379" # Redis
+      - "6379:6379" # Valkey
     volumes:
       - llmgateway_postgres:/var/lib/postgresql/data
-      - llmgateway_redis:/var/lib/redis
+      - llmgateway_valkey:/var/lib/valkey
     environment:
       # URLs (update for your domain in production)
       - UI_URL=${UI_URL:-http://localhost:3002}
@@ -57,5 +57,5 @@ services:
 volumes:
   llmgateway_postgres:
     driver: local
-  llmgateway_redis:
+  llmgateway_valkey:
     driver: local

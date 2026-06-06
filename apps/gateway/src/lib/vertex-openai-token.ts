@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
 interface ServiceAccountKey {
@@ -10,7 +10,7 @@ interface ServiceAccountKey {
 	project_id: string;
 }
 
-const REDIS_KEY_PREFIX = "gcp:vertex-openai:access_token";
+const VALKEY_KEY_PREFIX = "gcp:vertex-openai:access_token";
 const TTL_SECONDS = 50 * 60;
 const TTL_MS = TTL_SECONDS * 1000;
 
@@ -92,7 +92,7 @@ function cacheKey(sa: ServiceAccountKey): string {
 		.update(sa.client_email + "|" + sa.token_uri)
 		.digest("hex")
 		.slice(0, 16);
-	return `${REDIS_KEY_PREFIX}:${hash}`;
+	return `${VALKEY_KEY_PREFIX}:${hash}`;
 }
 
 export async function getVertexOpenAIAccessToken(
@@ -114,14 +114,14 @@ export async function getVertexOpenAIAccessToken(
 	}
 
 	try {
-		const redisToken = await redisClient.get(key);
+		const redisToken = await valkeyClient.get(key);
 		if (redisToken) {
 			memoryCache.set(key, { token: redisToken, expiresAt: now + TTL_MS });
 			return redisToken;
 		}
 	} catch (err) {
 		logger.warn(
-			"Redis read failed for Vertex OpenAI token",
+			"Valkey read failed for Vertex OpenAI token",
 			err instanceof Error ? err : new Error(String(err)),
 		);
 	}
@@ -129,10 +129,10 @@ export async function getVertexOpenAIAccessToken(
 	const token = await exchangeJwtForAccessToken(sa);
 	memoryCache.set(key, { token, expiresAt: now + TTL_MS });
 	try {
-		await redisClient.set(key, token, "EX", TTL_SECONDS);
+		await valkeyClient.set(key, token, "EX", TTL_SECONDS);
 	} catch (err) {
 		logger.warn(
-			"Redis write failed for Vertex OpenAI token",
+			"Valkey write failed for Vertex OpenAI token",
 			err instanceof Error ? err : new Error(String(err)),
 		);
 	}

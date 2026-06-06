@@ -1,6 +1,6 @@
 import { randomInt as cryptoRandomInt, randomUUID } from "crypto";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import {
 	models as allModels,
 	providers as allProviders,
@@ -2117,7 +2117,7 @@ async function seed() {
 	});
 
 	await closeDatabase();
-	await redisClient.quit();
+	await valkeyClient.quit();
 }
 
 void seed();

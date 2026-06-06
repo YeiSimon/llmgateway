@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { parseProviderResponse } from "./parse-provider-response.js";
 
 vi.mock("@llmgateway/cache", () => ({
-	redisClient: {
+	valkeyClient: {
 		setex: vi.fn().mockResolvedValue("OK"),
 	},
 }));

@@ -10,8 +10,8 @@ data:
 
   # Internal service URLs (Kubernetes DNS)
   API_BACKEND_URL: {{ include "llmgateway.serviceUrl" (dict "context" . "name" "api") | quote }}
-  REDIS_HOST: {{ include "llmgateway.redis.host" . | quote }}
-  REDIS_PORT: {{ include "llmgateway.redis.port" . | quote }}
+  VALKEY_HOST: {{ include "llmgateway.valkey.host" . | quote }}
+  VALKEY_PORT: {{ include "llmgateway.valkey.port" . | quote }}
 
   # Public-facing URLs
   {{- if .Values.urls.ui }}

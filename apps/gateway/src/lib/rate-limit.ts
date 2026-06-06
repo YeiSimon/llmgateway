@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { findOrganizationById } from "@/lib/cached-queries.js";
 
-import { redisClient } from "@llmgateway/cache";
+import { valkeyClient } from "@llmgateway/cache";
 import { logger } from "@llmgateway/logger";
 
 import type { ModelDefinition } from "@llmgateway/models";
@@ -42,7 +42,7 @@ export function isFreeModel(
 }
 
 /**
- * Generate Redis key for rate limiting
+ * Generate Valkey key for rate limiting
  */
 function getRateLimitKey(organizationId: string, model: string): string {
 	return `rate_limit:free_model:${organizationId}:${model}`;
@@ -95,18 +95,18 @@ export async function checkFreeModelRateLimit(
 
 		const key = getRateLimitKey(organizationId, model);
 
-		// Use sliding window approach with Redis
+		// Use sliding window approach with Valkey
 		const now = Date.now();
 		// eslint-disable-next-line no-mixed-operators
 		const windowStart = now - window * 1000;
 
 		// Remove old entries and count current requests in window
-		await redisClient.zremrangebyscore(key, "-inf", windowStart);
-		const currentCount = await redisClient.zcard(key);
+		await valkeyClient.zremrangebyscore(key, "-inf", windowStart);
+		const currentCount = await valkeyClient.zcard(key);
 
 		if (currentCount >= limit) {
 			// Rate limited - calculate retry after
-			const oldestEntry = await redisClient.zrange(key, 0, 0, "WITHSCORES");
+			const oldestEntry = await valkeyClient.zrange(key, 0, 0, "WITHSCORES");
 			const retryAfter =
 				oldestEntry.length > 1
 					? Math.ceil(
@@ -131,8 +131,8 @@ export async function checkFreeModelRateLimit(
 		// Add current request to sliding window with a unique member.
 		// Using only `now` as member can collide under same-millisecond concurrency.
 		const member = `${now}:${randomUUID()}`;
-		await redisClient.zadd(key, now, member);
-		await redisClient.expire(key, window * 2); // Set expiry to 2x window for cleanup
+		await valkeyClient.zadd(key, now, member);
+		await valkeyClient.expire(key, window * 2); // Set expiry to 2x window for cleanup
 
 		logger.debug(`Free model rate limit check passed`, {
 			organizationId,
@@ -150,7 +150,7 @@ export async function checkFreeModelRateLimit(
 		};
 	} catch (error) {
 		logger.error("Error checking free model rate limit:", error as Error);
-		// Allow request on error to avoid blocking users due to Redis issues
+		// Allow request on error to avoid blocking users due to Valkey issues
 		return { allowed: true, remaining: 0, limit: 0 };
 	}
 }
