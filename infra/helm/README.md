@@ -83,7 +83,11 @@ ingress:
     ui: app.example.com
     api: api.example.com
     gateway: gateway.example.com
+    admin: admin.example.com
 ```
+
+The admin host serves the internal dashboard, including the system settings
+page at `/settings`.
 
 ## Local development
 
