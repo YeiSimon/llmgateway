@@ -299,6 +299,100 @@ function responseFor(
 		return jsonResponse({ discounts: [] });
 	}
 
+	// ── Enterprise routes ────────────────────────────────────────────────────
+
+	if (pathname === "/analytics/summary") {
+		return jsonResponse({
+			totalRequests: 1234,
+			totalCost: "4.56",
+			totalInputTokens: 500000,
+			totalOutputTokens: 200000,
+			avgLatencyMs: 842,
+			source: "postgres",
+		});
+	}
+
+	if (pathname === "/analytics/cost-breakdown") {
+		return jsonResponse({
+			data: [
+				{
+					label: "gpt-4o",
+					cost: "3.21",
+					requests: 800,
+					inputTokens: 400000,
+					outputTokens: 150000,
+				},
+			],
+			source: "postgres",
+		});
+	}
+
+	if (pathname === "/analytics/provider-health") {
+		return jsonResponse({
+			providers: [
+				{
+					provider: "openai",
+					totalRequests: 800,
+					errorRequests: 2,
+					throttledRequests: 0,
+					avgLatencyMs: 842,
+					uptimePct: 99.7,
+				},
+			],
+			source: "postgres",
+		});
+	}
+
+	if (pathname === "/rate-limits") {
+		return jsonResponse({ rateLimitRules: [], budgetCaps: [] });
+	}
+
+	if (pathname === "/rate-limits/budget-caps") {
+		return jsonResponse({ budgetCaps: [] });
+	}
+
+	if (pathname === `/orgs/${organization.id}/sso`) {
+		return jsonResponse({ ssoConfig: null });
+	}
+
+	if (pathname === `/orgs/${organization.id}/log-forwarders`) {
+		return jsonResponse({ forwarders: [] });
+	}
+
+	if (pathname === `/guardrails/config/${organization.id}`) {
+		return jsonResponse(null);
+	}
+
+	if (pathname === `/guardrails/rules/${organization.id}`) {
+		return jsonResponse({ rules: [] });
+	}
+
+	if (pathname === `/guardrails/violations/${organization.id}`) {
+		return jsonResponse({ violations: [], pagination: { nextCursor: null, hasMore: false, limit: 50 } });
+	}
+
+	if (pathname === `/guardrails/stats/${organization.id}`) {
+		return jsonResponse({
+			total: 0,
+			last24Hours: 0,
+			last7Days: 0,
+			byAction: { blocked: 0, redacted: 0, warned: 0 },
+			byCategory: {},
+		});
+	}
+
+	if (pathname === "/audit-logs") {
+		return jsonResponse({ logs: [], total: 0, hasMore: false });
+	}
+
+	if (pathname === `/orgs/${organization.id}/security-events`) {
+		return jsonResponse({ events: [], total: 0 });
+	}
+
+	if (pathname === "/circuit-breaker/states") {
+		return jsonResponse({ states: [] });
+	}
+
 	return jsonResponse({});
 }
 
