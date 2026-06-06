@@ -12,6 +12,9 @@ data:
   API_BACKEND_URL: {{ include "llmgateway.serviceUrl" (dict "context" . "name" "api") | quote }}
   VALKEY_HOST: {{ include "llmgateway.valkey.host" . | quote }}
   VALKEY_PORT: {{ include "llmgateway.valkey.port" . | quote }}
+  # Legacy aliases — images built before the Redis→Valkey rename still read REDIS_*
+  REDIS_HOST: {{ include "llmgateway.valkey.host" . | quote }}
+  REDIS_PORT: {{ include "llmgateway.valkey.port" . | quote }}
 
   # Public-facing URLs
   {{- if .Values.urls.ui }}
