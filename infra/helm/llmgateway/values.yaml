@@ -350,6 +350,8 @@ valkey:
     limits:
       cpu: 200m
       memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
 
 # -- External Valkey (used when valkey.enabled is false)
 externalValkey:
