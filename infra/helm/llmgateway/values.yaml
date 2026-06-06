@@ -368,15 +368,25 @@ externalValkey:
 #   helm install eg oci://docker.io/envoyproxy/gateway-helm \
 #     --version v1.4.0 -n envoy-gateway-system --create-namespace
 #
-# Then set httpRoutes.enabled: true and configure hosts below.
+# Two routing modes:
+#
+#   mode: port      — no domain needed. Each service gets its own port on a
+#                     single LoadBalancer IP (UI :3002, API :4002, etc.).
+#                     The Gateway resource is created by this chart.
+#
+#   mode: hostname  — virtual-host routing. Requires real domain names set in
+#                     the hosts block below. The Gateway resource must exist
+#                     externally (e.g. created by Envoy Gateway's own chart).
 # =============================================================================
 httpRoutes:
   enabled: false
-  # -- Name of the Gateway resource (created by Envoy Gateway or your impl)
+  # -- "port" (raw IP, no domain) or "hostname" (domain-based virtual hosting)
+  mode: port
+  # -- Name of the Gateway resource
   gatewayName: llmgateway
-  # -- Namespace where the Gateway resource lives
+  # -- Namespace of the external Gateway (hostname mode only)
   gatewayNamespace: envoy-gateway-system
-  # -- Per-service hostnames (must match Gateway listeners)
+  # -- Per-service hostnames (hostname mode only — leave empty in port mode)
   hosts:
     ui: ""
     api: ""

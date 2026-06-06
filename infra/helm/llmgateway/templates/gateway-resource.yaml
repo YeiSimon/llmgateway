@@ -1,0 +1,67 @@
+{{/*
+  Port mode: creates the Gateway resource inside the release namespace.
+  Each service gets its own listener on a dedicated port so the LoadBalancer
+  IP alone is enough to reach every frontend — no domain names required.
+  In hostname mode the Gateway is created externally (e.g. by Envoy Gateway's
+  own Helm chart) and only HTTPRoutes are managed here.
+*/}}
+{{- if and .Values.httpRoutes.enabled (eq (.Values.httpRoutes.mode | default "hostname") "port") }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.httpRoutes.gatewayName | default "llmgateway" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: eg
+  listeners:
+    {{- if .Values.ui.enabled }}
+    - name: ui
+      port: 3002
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+    {{- if .Values.api.enabled }}
+    - name: api
+      port: 4002
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+    {{- if .Values.gateway.enabled }}
+    - name: gateway
+      port: 4001
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+    {{- if .Values.playground.enabled }}
+    - name: playground
+      port: 3003
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+    {{- if .Values.docs.enabled }}
+    - name: docs
+      port: 3005
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+    {{- if .Values.admin.enabled }}
+    - name: admin
+      port: 3006
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+{{- end }}

@@ -1,6 +1,172 @@
 {{- if .Values.httpRoutes.enabled }}
 {{- $fullName := include "llmgateway.fullname" . }}
-{{- $gwName := .Values.httpRoutes.gatewayName }}
+{{- $gwName := .Values.httpRoutes.gatewayName | default "llmgateway" }}
+{{- $mode := .Values.httpRoutes.mode | default "hostname" }}
+
+{{- if eq $mode "port" }}
+{{/*
+  Port mode — one HTTPRoute per service, each bound to its own listener via
+  sectionName. No hostnames field so any IP-level request to that port matches.
+  The Gateway resource itself is created by gateway-resource.yaml in this mode.
+*/}}
+{{- $gwNamespace := .Release.Namespace }}
+
+# ── UI :3002 ──────────────────────────────────────────────────────────────────
+{{- if .Values.ui.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "ui") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: ui
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-ui
+          port: 80
+---
+{{- end }}
+
+# ── API :4002 ─────────────────────────────────────────────────────────────────
+{{- if .Values.api.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "api") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: api
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-api
+          port: 80
+---
+{{- end }}
+
+# ── Gateway (AI traffic) :4001 ────────────────────────────────────────────────
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        request: {{ .Values.httpRoutes.gatewayTimeoutSeconds | default 600 }}s
+      backendRefs:
+        - name: {{ $fullName }}-gateway
+          port: 80
+---
+{{- end }}
+
+# ── Playground :3003 ──────────────────────────────────────────────────────────
+{{- if .Values.playground.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-playground
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "playground") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: playground
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-playground
+          port: 80
+---
+{{- end }}
+
+# ── Docs :3005 ────────────────────────────────────────────────────────────────
+{{- if .Values.docs.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "docs") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: docs
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-docs
+          port: 80
+---
+{{- end }}
+
+# ── Admin :3006 ───────────────────────────────────────────────────────────────
+{{- if .Values.admin.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "admin") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: admin
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-admin
+          port: 80
+{{- end }}
+
+{{- else }}
+{{/*
+  Hostname mode — virtual-host routing, one HTTPRoute per service. Each route
+  is only rendered when a hostname is provided for that service.
+*/}}
 {{- $gwNamespace := .Values.httpRoutes.gatewayNamespace }}
 {{- $hosts := .Values.httpRoutes.hosts }}
 
@@ -63,7 +229,6 @@ metadata:
   labels:
     {{- include "llmgateway.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
   annotations:
-    # AI responses can be large and slow — extend timeouts
     gateway.envoyproxy.io/response-timeout: "{{ .Values.httpRoutes.gatewayTimeoutSeconds | default 600 }}s"
 spec:
   parentRefs:
@@ -132,7 +297,7 @@ spec:
 ---
 {{- end }}
 
-# ── Admin (internal only — restrict via ReferenceGrant or NetworkPolicy) ──────
+# ── Admin (internal only — restrict via NetworkPolicy) ────────────────────────
 {{- if and .Values.admin.enabled $hosts.admin }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -156,4 +321,5 @@ spec:
           port: 80
 {{- end }}
 
-{{- end }}
+{{- end }}{{/* end mode switch */}}
+{{- end }}{{/* end httpRoutes.enabled */}}
