@@ -30,6 +30,7 @@ import { hasErrorCode } from "@llmgateway/models";
 import { calculateFees, isCreditTopUpAmountInRange } from "@llmgateway/shared";
 
 import { posthog } from "./posthog.js";
+import { runApiKeyLifecycleCheck } from "./services/api-key-lifecycle.js";
 import {
 	getOrgRecipientEmail,
 	runFollowUpEmailsLoop,
@@ -101,6 +102,8 @@ const VIDEO_WEBHOOK_POLL_INTERVAL_SECONDS =
 	Number(process.env.VIDEO_WEBHOOK_POLL_INTERVAL_SECONDS) || 5;
 const LOG_FORWARDER_POLL_INTERVAL_SECONDS =
 	Number(process.env.LOG_FORWARDER_POLL_INTERVAL_SECONDS) || 5;
+const API_KEY_LIFECYCLE_INTERVAL_SECONDS =
+	Number(process.env.API_KEY_LIFECYCLE_INTERVAL_SECONDS) || 300; // 5 minutes default
 
 interface ApiKeyUsageEvent {
 	cost: Decimal;
@@ -1618,6 +1621,33 @@ async function runGlobalStatsLoop() {
 	}
 }
 
+async function runApiKeyLifecycleLoop() {
+	activeLoops++;
+	const interval = API_KEY_LIFECYCLE_INTERVAL_SECONDS * 1000;
+	logger.info(
+		`Starting API key lifecycle loop (interval: ${API_KEY_LIFECYCLE_INTERVAL_SECONDS} seconds)...`,
+	);
+
+	try {
+		while (!isStopRequested()) {
+			try {
+				await runApiKeyLifecycleCheck();
+
+				await interruptibleSleep(interval);
+			} catch (error) {
+				logger.error(
+					"Error in API key lifecycle loop",
+					error instanceof Error ? error : new Error(String(error)),
+				);
+				await interruptibleSleep(5000);
+			}
+		}
+	} finally {
+		activeLoops--;
+		logger.info("API key lifecycle loop stopped");
+	}
+}
+
 async function runDataRetentionLoop() {
 	activeLoops++;
 	const interval = (process.env.NODE_ENV === "production" ? 300 : 60) * 1000; // 5 minutes in prod, 1 minute in dev
@@ -1724,6 +1754,9 @@ export async function startWorker() {
 	logger.info(
 		"- Follow-up emails: runs every hour to check for lifecycle emails",
 	);
+	logger.info(
+		`- API key lifecycle: runs every ${API_KEY_LIFECYCLE_INTERVAL_SECONDS} seconds to expire and flag keys`,
+	);
 
 	void runMinutelyHistoryLoop();
 	void runCurrentMinuteHistoryLoop();
@@ -1737,6 +1770,7 @@ export async function startWorker() {
 	void runAutoTopUpLoop();
 	void runBatchProcessLoop();
 	void runDataRetentionLoop();
+	void runApiKeyLifecycleLoop();
 	void runFollowUpEmailsLoop({
 		shouldStop: isStopRequested,
 		acquireLock,

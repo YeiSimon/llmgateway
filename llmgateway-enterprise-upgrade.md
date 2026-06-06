@@ -10,13 +10,13 @@
 
 ## Progress Tracker
 
-**25 of 30 tasks complete.**
+**27 of 30 tasks complete.**
 
 | Phase                           |     Done | Remaining                                       |
 | ------------------------------- | -------: | ----------------------------------------------- |
 | Phase 1 - Security & Compliance |    4 / 6 | TOTP 2FA, Better Auth SSO wiring                |
-| Phase 2 - Reliability           |    4 / 6 | Dynamic config polish, API key lifecycle worker |
-| Phase 3 - Observability         |    3 / 4 | Provider health UI data-source polish           |
+| Phase 2 - Reliability           |    5 / 6 | Dynamic config polish                           |
+| Phase 3 - Observability         |    4 / 4 | Complete                                        |
 | Phase 4 - Frontend              |  12 / 12 | Complete                                        |
 | Phase 5 - Infrastructure        |    2 / 2 | Complete                                        |
 | IAM upgrade                     | Complete | None                                            |
@@ -303,8 +303,8 @@ Notes:
 
 | Item                        | Status  | Notes                                                                                                 |
 | --------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| B3 Dynamic config polish    | Partial | Existing config support needs final UI/admin integration review.                                      |
-| B9 API key lifecycle worker | Partial | Lifecycle fields and rotate route/dialog exist, but background expiry/rotation cron is still pending. |
+| B3 Dynamic config polish    | Partial  | Existing config support needs final UI/admin integration review.                                                                                |
+| B9 API key lifecycle worker | Complete | Background worker loop added (`apps/worker/src/services/api-key-lifecycle.ts`); expires keys, flags rotation-due, and clears grace periods. |
 
 ### Phase 3 - Observability
 
@@ -312,7 +312,7 @@ Notes:
 | -------------------------- | -------- | ---------------------------------------------------------------------------------------- |
 | ClickHouse analytics       | Complete | Summary, cost breakdown, and provider health use ClickHouse with Postgres fallback.      |
 | Audit/log forwarder worker | Complete | Durable outbox enqueue plus worker delivery/retry for webhook and syslog.                |
-| Provider health analytics  | Partial  | Backend endpoint exists; Provider Health UI still primarily shows circuit breaker state. |
+| Provider health analytics  | Complete | UI now fetches `/analytics/provider-health` and displays request count, error rate, throttle rate, and latency for the four core providers alongside circuit breaker state. |
 
 ### Phase 5 - Infrastructure
 
@@ -328,7 +328,7 @@ Helm deployment notes:
 - Current deployed revision: `3`.
 - Current release status: `deployed`.
 - All `llmgateway` pods verified `1/1 Running` after the revision 3 upgrade.
-- Current cluster has no default dynamic storage provisioner, so the deployed release uses `postgresql.persistence.enabled=false` and `redis.persistence.enabled=false`.
+- Current cluster has no default dynamic storage provisioner, so the deployed release uses `postgresql.persistence.enabled=false` and `valkey.persistence.enabled=false`.
 - With persistence disabled, bundled PostgreSQL and Redis use `emptyDir`; this is suitable for a smoke deployment, not durable production storage.
 - `llmgateway-gateway-admin` exposes the gateway admin listener on port `4003` inside the cluster.
 - Commit `27dffb3b` added the deployment fixes. Commit `86adba80` fixed Helm ConfigMap env rendering so large numeric values render as plain integer strings instead of scientific notation.

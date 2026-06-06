@@ -10,6 +10,7 @@ export {
 	processPendingWebhookDeliveries,
 } from "./services/video-jobs.js";
 export { processPendingLogForwarderDeliveries } from "./services/log-forwarder.js";
+export { runApiKeyLifecycleCheck } from "./services/api-key-lifecycle.js";
 
 let isShuttingDown = false;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { format, subDays } from "date-fns";
 import { useState } from "react";
 
 import { Badge } from "@/lib/components/badge";
@@ -22,26 +23,95 @@ import {
 } from "@/lib/components/table";
 import { useApi, useFetchClient } from "@/lib/fetch-client";
 
-import { providers } from "@llmgateway/models";
-
 interface ProviderHealthClientProps {
 	orgId: string;
 }
 
-const VISIBLE_PROVIDERS = providers.filter(
-	(p) => p.id !== "llmgateway" && p.id !== "custom" && p.website !== null,
-);
+// The four providers to show health metrics for
+const HEALTH_PROVIDER_IDS = ["openai", "anthropic", "google", "llm-d"] as const;
 
-export function ProviderHealthClient({
-	orgId: _orgId,
-}: ProviderHealthClientProps) {
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+	openai: "OpenAI",
+	anthropic: "Anthropic",
+	google: "Google (Gemini)",
+	"llm-d": "llm-d",
+};
+
+function formatLatency(ms: number | null | undefined): string {
+	if (ms === null || ms === undefined) {
+		return "—";
+	}
+	return `${Math.round(ms)} ms`;
+}
+
+function formatRate(rate: number): string {
+	return `${rate.toFixed(1)}%`;
+}
+
+function formatCount(count: number): string {
+	if (count >= 1_000_000) {
+		return `${(count / 1_000_000).toFixed(1)}M`;
+	}
+	if (count >= 1_000) {
+		return `${(count / 1_000).toFixed(1)}K`;
+	}
+	return String(count);
+}
+
+function ErrorRateBadge({ rate }: { rate: number }) {
+	if (rate >= 10) {
+		return <Badge variant="destructive">{formatRate(rate)}</Badge>;
+	}
+	if (rate >= 3) {
+		return (
+			<Badge variant="outline" className="border-amber-500 text-amber-600">
+				{formatRate(rate)}
+			</Badge>
+		);
+	}
+	return (
+		<Badge variant="outline" className="border-emerald-500 text-emerald-600">
+			{formatRate(rate)}
+		</Badge>
+	);
+}
+
+export function ProviderHealthClient({ orgId }: ProviderHealthClientProps) {
 	const api = useApi();
 	const fetchClient = useFetchClient();
 
+	const now = new Date();
+	const from = format(subDays(now, 7), "yyyy-MM-dd");
+	const to = format(now, "yyyy-MM-dd");
+
+	// Fetch provider health analytics
+	const {
+		data: healthData,
+		isLoading: isHealthLoading,
+		error: healthError,
+	} = api.useQuery(
+		"get",
+		"/analytics/provider-health",
+		{
+			params: {
+				query: {
+					organizationId: orgId,
+					from,
+					to,
+				},
+			},
+		},
+		{
+			refetchInterval: 60_000,
+			staleTime: 30_000,
+		},
+	);
+
+	// Fetch circuit breaker states
 	const {
 		data: statesData,
-		isLoading,
-		error,
+		isLoading: isCbLoading,
+		error: cbError,
 	} = api.useQuery(
 		"get",
 		"/admin/circuit-breaker-states" as never,
@@ -61,7 +131,11 @@ export function ProviderHealthClient({
 		(statesData as { states?: Record<string, string> } | undefined)?.states ??
 		{};
 
-	const statusUnavailable = !!error;
+	const healthByProvider = new Map(
+		(healthData?.data ?? []).map((item) => [item.provider, item]),
+	);
+
+	const cbStatusUnavailable = !!cbError;
 
 	const handleReset = async (key: string) => {
 		setResetting((prev) => new Set(prev).add(key));
@@ -81,19 +155,19 @@ export function ProviderHealthClient({
 		}
 	};
 
-	const getStatusBadge = (providerId: string) => {
+	const getCircuitBadge = (providerId: string) => {
 		const key = `provider:${providerId}`;
 		const state = circuitStates[key];
 
-		if (statusUnavailable) {
-			return <Badge variant="secondary">Status unavailable</Badge>;
+		if (cbStatusUnavailable) {
+			return <Badge variant="secondary">Unavailable</Badge>;
 		}
 
 		if (state === "open") {
 			return (
 				<Badge variant="destructive" className="gap-1">
 					<span className="h-1.5 w-1.5 rounded-full bg-current" />
-					Circuit Open
+					Open
 				</Badge>
 			);
 		}
@@ -121,13 +195,15 @@ export function ProviderHealthClient({
 		);
 	};
 
+	const isLoading = isHealthLoading || isCbLoading;
+
 	return (
 		<div className="flex flex-col gap-6 p-6">
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-2xl font-bold">Provider Health</h1>
 					<p className="text-muted-foreground text-sm">
-						Circuit breaker status — auto-refreshes every 30s
+						Last 7 days · auto-refreshes every 60s
 					</p>
 				</div>
 				<Badge variant="secondary" className="text-xs">
@@ -135,19 +211,20 @@ export function ProviderHealthClient({
 				</Badge>
 			</div>
 
-			{statusUnavailable && (
+			{healthError && (
 				<div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-					Circuit breaker state endpoint is unavailable. Provider list is shown
-					below — use the Reset button to manually close a breaker if needed.
+					Could not load health analytics. Latency and error-rate data may be
+					unavailable.
 				</div>
 			)}
 
+			{/* Health metrics table */}
 			<Card>
 				<CardHeader>
-					<CardTitle>Providers</CardTitle>
+					<CardTitle>Health Metrics</CardTitle>
 					<CardDescription>
-						Reset a circuit breaker to force it back to closed state after a
-						provider recovers
+						Request volume, error rate, throttle rate, and latency for the last
+						7 days across the four core providers.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="overflow-x-auto">
@@ -155,33 +232,37 @@ export function ProviderHealthClient({
 						<TableHeader>
 							<TableRow>
 								<TableHead>Provider</TableHead>
-								<TableHead>Status</TableHead>
+								<TableHead className="text-right">Requests</TableHead>
+								<TableHead className="text-right">Error Rate</TableHead>
+								<TableHead className="text-right">Throttle Rate</TableHead>
+								<TableHead className="text-right">Avg Latency</TableHead>
+								<TableHead className="text-right">P95 Latency</TableHead>
+								<TableHead>Circuit</TableHead>
 								<TableHead className="w-24">Action</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{isLoading
-								? Array.from({ length: 6 }).map((_, i) => (
+								? Array.from({ length: 4 }).map((_, i) => (
 										<TableRow key={i}>
-											<TableCell>
-												<Skeleton className="h-4 w-32" />
-											</TableCell>
-											<TableCell>
-												<Skeleton className="h-5 w-20" />
-											</TableCell>
-											<TableCell>
-												<Skeleton className="h-8 w-16" />
-											</TableCell>
+											{Array.from({ length: 8 }).map((__, j) => (
+												<TableCell key={j}>
+													<Skeleton className="h-4 w-16" />
+												</TableCell>
+											))}
 										</TableRow>
 									))
-								: VISIBLE_PROVIDERS.map((provider) => {
-										const cbKey = `provider:${provider.id}`;
+								: HEALTH_PROVIDER_IDS.map((providerId) => {
+										const health = healthByProvider.get(providerId);
+										const cbKey = `provider:${providerId}`;
 										const isResetting = resetting.has(cbKey);
 										const result = resetResults.get(cbKey);
+										const name =
+											PROVIDER_DISPLAY_NAMES[providerId] ?? providerId;
 
 										return (
 											<TableRow
-												key={provider.id}
+												key={providerId}
 												className={
 													circuitStates[cbKey] === "open"
 														? "bg-destructive/5"
@@ -191,17 +272,28 @@ export function ProviderHealthClient({
 												}
 											>
 												<TableCell>
-													<div className="flex items-center gap-2">
-														{provider.color && (
-															<span
-																className="h-3 w-3 rounded-full shrink-0"
-																style={{ backgroundColor: provider.color }}
-															/>
-														)}
-														<span className="font-medium">{provider.name}</span>
-													</div>
+													<span className="font-medium">{name}</span>
 												</TableCell>
-												<TableCell>{getStatusBadge(provider.id)}</TableCell>
+												<TableCell className="text-right tabular-nums">
+													{health ? formatCount(health.requestCount) : "—"}
+												</TableCell>
+												<TableCell className="text-right">
+													{health ? (
+														<ErrorRateBadge rate={health.errorRate} />
+													) : (
+														"—"
+													)}
+												</TableCell>
+												<TableCell className="text-right tabular-nums">
+													{health ? formatRate(health.throttleRate) : "—"}
+												</TableCell>
+												<TableCell className="text-right tabular-nums">
+													{health ? formatLatency(health.avgLatencyMs) : "—"}
+												</TableCell>
+												<TableCell className="text-right tabular-nums">
+													{health ? formatLatency(health.p95LatencyMs) : "—"}
+												</TableCell>
+												<TableCell>{getCircuitBadge(providerId)}</TableCell>
 												<TableCell>
 													<div className="flex items-center gap-2">
 														<Button
