@@ -358,7 +358,35 @@ externalRedis:
   password: ""
 
 # =============================================================================
-# Ingress
+# Kubernetes Gateway API (recommended — replaces deprecated nginx Ingress)
+# Requires Envoy Gateway or another Gateway API implementation installed.
+#
+# Install Envoy Gateway:
+#   helm install eg oci://docker.io/envoyproxy/gateway-helm \
+#     --version v1.4.0 -n envoy-gateway-system --create-namespace
+#
+# Then set httpRoutes.enabled: true and configure hosts below.
+# =============================================================================
+httpRoutes:
+  enabled: false
+  # -- Name of the Gateway resource (created by Envoy Gateway or your impl)
+  gatewayName: llmgateway
+  # -- Namespace where the Gateway resource lives
+  gatewayNamespace: envoy-gateway-system
+  # -- Per-service hostnames (must match Gateway listeners)
+  hosts:
+    ui: ""
+    api: ""
+    gateway: ""
+    playground: ""
+    code: ""
+    docs: ""
+    admin: ""
+  # -- Timeout in seconds for gateway (AI) routes — default 600s for streaming
+  gatewayTimeoutSeconds: 600
+
+# =============================================================================
+# Ingress (legacy — nginx Ingress was archived Jan 2026, use httpRoutes above)
 # =============================================================================
 ingress:
   enabled: false

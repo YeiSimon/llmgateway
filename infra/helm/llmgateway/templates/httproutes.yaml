@@ -1,0 +1,159 @@
+{{- if .Values.httpRoutes.enabled }}
+{{- $fullName := include "llmgateway.fullname" . }}
+{{- $gwName := .Values.httpRoutes.gatewayName }}
+{{- $gwNamespace := .Values.httpRoutes.gatewayNamespace }}
+{{- $hosts := .Values.httpRoutes.hosts }}
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+{{- if and .Values.ui.enabled $hosts.ui }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-ui
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "ui") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.ui | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-ui
+          port: 80
+---
+{{- end }}
+
+# ── API ───────────────────────────────────────────────────────────────────────
+{{- if and .Values.api.enabled $hosts.api }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-api
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "api") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.api | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-api
+          port: 80
+---
+{{- end }}
+
+# ── Gateway (public AI traffic) ───────────────────────────────────────────────
+{{- if and .Values.gateway.enabled $hosts.gateway }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-gateway
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+  annotations:
+    # AI responses can be large and slow — extend timeouts
+    gateway.envoyproxy.io/response-timeout: "{{ .Values.httpRoutes.gatewayTimeoutSeconds | default 600 }}s"
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.gateway | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-gateway
+          port: 80
+---
+{{- end }}
+
+# ── Playground ────────────────────────────────────────────────────────────────
+{{- if and .Values.playground.enabled $hosts.playground }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-playground
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "playground") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.playground | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-playground
+          port: 80
+---
+{{- end }}
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+{{- if and .Values.docs.enabled $hosts.docs }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-docs
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "docs") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.docs | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-docs
+          port: 80
+---
+{{- end }}
+
+# ── Admin (internal only — restrict via ReferenceGrant or NetworkPolicy) ──────
+{{- if and .Values.admin.enabled $hosts.admin }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-admin
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "admin") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+  hostnames:
+    - {{ $hosts.admin | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}-admin
+          port: 80
+{{- end }}
+
+{{- end }}
