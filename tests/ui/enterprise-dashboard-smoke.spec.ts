@@ -108,9 +108,7 @@ test.describe("enterprise org-level pages", () => {
 test("setup wizard renders step 1", async ({ page }) => {
 	await goto(page, "/setup");
 	await expect(
-		page
-			.getByRole("heading", { name: /create organization|get started|setup/i })
-			.first(),
+		page.getByRole("heading", { name: /welcome to llm gateway|your organization/i }).first(),
 	).toBeVisible();
 });
 
@@ -133,10 +131,8 @@ test.describe("API key CRUD", () => {
 	});
 
 	test("API key detail page renders", async ({ page }) => {
-		await goto(
-			page,
-			`/dashboard/${orgId}/${projectId}/api-keys/api-key-test`,
-		);
+		await goto(page, `/dashboard/${orgId}/${projectId}/api-keys/api-key-test/iam`);
+		await expect(page.getByRole("heading", { name: /iam rules/i }).first()).toBeVisible();
 		await expect(page.getByText(nextErrorText)).toHaveCount(0);
 	});
 });
@@ -146,7 +142,7 @@ test.describe("API key CRUD", () => {
 test.describe("provider keys CRUD", () => {
 	test("provider keys page shows existing key", async ({ page }) => {
 		await goto(page, `/dashboard/${orgId}/org/provider-keys`);
-		await expect(page.getByText("Smoke OpenAI").first()).toBeVisible();
+		await expect(page.getByText("sk-****test").first()).toBeVisible();
 	});
 
 	test("provider keys page has add button", async ({ page }) => {
@@ -292,11 +288,21 @@ test.describe("security events", () => {
 
 	test("security events page shows empty state or table", async ({ page }) => {
 		await goto(page, `/dashboard/${orgId}/org/security-events`);
-		const empty = page.getByText(/no violations|no events|no security events/i).first();
+		await expect(
+			page.getByRole("heading", { name: /^Security Events$/i }).first(),
+		).toBeVisible();
+		const empty = page
+			.getByText(/no violations|no events|no security events/i)
+			.first();
 		const table = page.getByRole("table").first();
-		const hasEmpty = await empty.isVisible().catch(() => false);
-		const hasTable = await table.isVisible().catch(() => false);
-		expect(hasEmpty || hasTable, "should show empty state or table").toBe(true);
+		const upsell = page.getByText(/contact sales/i).first();
+		const hasEmpty = await empty.isVisible({ timeout: 15_000 }).catch(() => false);
+		const hasTable = await table.isVisible({ timeout: 15_000 }).catch(() => false);
+		const hasUpsell = await upsell.isVisible({ timeout: 15_000 }).catch(() => false);
+		expect(
+			hasEmpty || hasTable || hasUpsell,
+			"should show empty state, table, or upsell",
+		).toBe(true);
 	});
 });
 
