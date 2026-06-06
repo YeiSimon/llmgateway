@@ -93,6 +93,17 @@ imagePullSecrets:
 {{- end }}
 
 {{/*
+Render a values.yaml scalar as an environment variable string.
+*/}}
+{{- define "llmgateway.envValue" -}}
+{{- if kindIs "float64" . -}}
+{{- printf "%.0f" . -}}
+{{- else -}}
+{{- . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Secret name (supports existingSecret)
 */}}
 {{- define "llmgateway.secretName" -}}

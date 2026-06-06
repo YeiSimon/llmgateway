@@ -58,78 +58,74 @@ data:
   # Gateway timeouts
   {{- with .Values.gateway.config }}
   {{- if .gatewayTimeoutMs }}
-  GATEWAY_TIMEOUT_MS: {{ .gatewayTimeoutMs | quote }}
+  GATEWAY_TIMEOUT_MS: {{ include "llmgateway.envValue" .gatewayTimeoutMs | quote }}
   {{- end }}
   {{- if .aiStreamingTimeoutMs }}
-  AI_STREAMING_TIMEOUT_MS: {{ .aiStreamingTimeoutMs | quote }}
+  AI_STREAMING_TIMEOUT_MS: {{ include "llmgateway.envValue" .aiStreamingTimeoutMs | quote }}
   {{- end }}
   {{- if .aiTimeoutMs }}
-  AI_TIMEOUT_MS: {{ .aiTimeoutMs | quote }}
+  AI_TIMEOUT_MS: {{ include "llmgateway.envValue" .aiTimeoutMs | quote }}
   {{- end }}
   {{- if .keepAliveTimeoutS }}
-  KEEP_ALIVE_TIMEOUT_S: {{ .keepAliveTimeoutS | quote }}
+  KEEP_ALIVE_TIMEOUT_S: {{ include "llmgateway.envValue" .keepAliveTimeoutS | quote }}
   {{- end }}
   {{- if .shutdownGracePeriodMs }}
-  SHUTDOWN_GRACE_PERIOD_MS: {{ .shutdownGracePeriodMs | quote }}
+  SHUTDOWN_GRACE_PERIOD_MS: {{ include "llmgateway.envValue" .shutdownGracePeriodMs | quote }}
   {{- end }}
   {{- if .healthCheckSkipDatabase }}
   HEALTH_CHECK_SKIP_DATABASE: {{ .healthCheckSkipDatabase | quote }}
   {{- end }}
   {{- if .healthCheckTimeoutMs }}
-  HEALTH_CHECK_TIMEOUT_MS: {{ .healthCheckTimeoutMs | quote }}
+  HEALTH_CHECK_TIMEOUT_MS: {{ include "llmgateway.envValue" .healthCheckTimeoutMs | quote }}
   {{- end }}
   {{- if .maxStreamingBufferMb }}
-  MAX_STREAMING_BUFFER_MB: {{ .maxStreamingBufferMb | quote }}
+  MAX_STREAMING_BUFFER_MB: {{ include "llmgateway.envValue" .maxStreamingBufferMb | quote }}
   {{- end }}
   {{- end }}
   {{- if .Values.gateway.admin.enabled }}
-  ADMIN_PORT: {{ .Values.gateway.admin.port | quote }}
+  ADMIN_PORT: {{ include "llmgateway.envValue" .Values.gateway.admin.port | quote }}
   ADMIN_HOST: {{ .Values.gateway.admin.host | quote }}
   {{- end }}
 
   # API config
-  RUN_MIGRATIONS: {{ .Values.api.runMigrations | default true | quote }}
+  RUN_MIGRATIONS: {{ include "llmgateway.envValue" .Values.api.runMigrations | quote }}
   {{- with .Values.api.config }}
   {{- if .timeoutMs }}
-  TIMEOUT_MS: {{ .timeoutMs | quote }}
+  TIMEOUT_MS: {{ include "llmgateway.envValue" .timeoutMs | quote }}
   {{- end }}
   {{- end }}
 
   # Database pool
   {{- with .Values.database }}
   {{- if .poolMax }}
-  DATABASE_POOL_MAX: {{ .poolMax | quote }}
+  DATABASE_POOL_MAX: {{ include "llmgateway.envValue" .poolMax | quote }}
   {{- end }}
   {{- if .poolMin }}
-  DATABASE_POOL_MIN: {{ .poolMin | quote }}
+  DATABASE_POOL_MIN: {{ include "llmgateway.envValue" .poolMin | quote }}
   {{- end }}
   {{- if .idleTimeoutMs }}
-  DATABASE_IDLE_TIMEOUT_MS: {{ .idleTimeoutMs | quote }}
+  DATABASE_IDLE_TIMEOUT_MS: {{ include "llmgateway.envValue" .idleTimeoutMs | quote }}
   {{- end }}
   {{- if .connectionTimeoutMs }}
-  DATABASE_CONNECTION_TIMEOUT_MS: {{ .connectionTimeoutMs | quote }}
+  DATABASE_CONNECTION_TIMEOUT_MS: {{ include "llmgateway.envValue" .connectionTimeoutMs | quote }}
   {{- end }}
   {{- end }}
 
   # Worker config
   {{- with .Values.worker.config }}
   {{- if .backfillDurationSeconds }}
-  BACKFILL_DURATION_SECONDS: {{ .backfillDurationSeconds | quote }}
+  BACKFILL_DURATION_SECONDS: {{ include "llmgateway.envValue" .backfillDurationSeconds | quote }}
   {{- end }}
-  {{- if .enableDataRetentionCleanup }}
-  ENABLE_DATA_RETENTION_CLEANUP: {{ .enableDataRetentionCleanup | quote }}
-  {{- end }}
-  {{- if .emailFollowUps }}
-  EMAIL_FOLLOW_UPS: {{ .emailFollowUps | quote }}
-  {{- end }}
+  ENABLE_DATA_RETENTION_CLEANUP: {{ include "llmgateway.envValue" .enableDataRetentionCleanup | quote }}
+  EMAIL_FOLLOW_UPS: {{ include "llmgateway.envValue" .emailFollowUps | quote }}
   {{- if .logQueueBatchSize }}
-  LOG_QUEUE_BATCH_SIZE: {{ .logQueueBatchSize | quote }}
+  LOG_QUEUE_BATCH_SIZE: {{ include "llmgateway.envValue" .logQueueBatchSize | quote }}
   {{- end }}
   {{- if .creditBatchSize }}
-  CREDIT_BATCH_SIZE: {{ .creditBatchSize | quote }}
+  CREDIT_BATCH_SIZE: {{ include "llmgateway.envValue" .creditBatchSize | quote }}
   {{- end }}
   {{- if .creditBatchInterval }}
-  CREDIT_BATCH_INTERVAL: {{ .creditBatchInterval | quote }}
+  CREDIT_BATCH_INTERVAL: {{ include "llmgateway.envValue" .creditBatchInterval | quote }}
   {{- end }}
   {{- end }}
 
