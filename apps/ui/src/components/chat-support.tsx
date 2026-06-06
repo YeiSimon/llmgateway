@@ -28,9 +28,13 @@ import type { UIMessage } from "ai";
 import type { LinkSafetyConfig } from "streamdown";
 
 function randomUUID(): string {
+	// crypto.randomUUID() is only available in secure contexts (HTTPS / localhost).
+	// Chrome defines it as a function on HTTP but throws SecurityError when called,
+	// so we must also guard on isSecureContext.
 	if (
 		typeof crypto !== "undefined" &&
-		typeof crypto.randomUUID === "function"
+		typeof crypto.randomUUID === "function" &&
+		(typeof window === "undefined" || window.isSecureContext)
 	) {
 		return crypto.randomUUID();
 	}
