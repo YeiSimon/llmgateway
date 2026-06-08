@@ -195,6 +195,69 @@ Run commands from the repository root only.
 - PostgreSQL: localhost:5432
 - Valkey: localhost:6379
 
+### Deployed Kubernetes Cluster (Production)
+
+Node IP: `10.2.183.64` — single-node bare-metal cluster, no cloud LoadBalancer (NodePort only).
+
+| Service    | URL                          |
+| ---------- | ---------------------------- |
+| UI         | http://10.2.183.64:32323     |
+| API        | http://10.2.183.64:32202     |
+| Gateway    | http://10.2.183.64:32675     |
+| Playground | http://10.2.183.64:31925     |
+| Docs       | http://10.2.183.64:30767     |
+| Admin      | http://10.2.183.64:32099     |
+
+Helm release: `llmgateway` in namespace `llmgateway`, chart at `infra/helm/llmgateway/`.
+
+Required `--set` values for every `helm upgrade` on this cluster:
+
+```
+auth.authSecret=<secret>
+auth.gatewayApiKeyHashSecret=<secret>
+auth.cookieDomain=10.2.183.64        # CRITICAL — old image defaults to "localhost", breaks login redirect
+postgresql.password=<password>
+postgresql.persistence.enabled=false
+valkey.enabled=true
+valkey.persistence.enabled=false
+ui.service.type=NodePort
+api.service.type=NodePort
+gateway.service.type=NodePort
+playground.service.type=NodePort
+docs.service.type=NodePort
+admin.service.type=NodePort
+urls.ui=http://10.2.183.64:32323
+urls.api=http://10.2.183.64:32202
+urls.gateway=http://10.2.183.64:32675
+urls.playground=http://10.2.183.64:31925
+urls.docs=http://10.2.183.64:30767
+urls.admin=http://10.2.183.64:32099
+auth.originUrls=http://10.2.183.64:32323\,http://10.2.183.64:31925\,http://10.2.183.64:32099
+```
+
+UI image: locally built as `docker.io/library/llmgateway-ui:fix` (contains `crypto.randomUUID` HTTP fix). To rebuild after UI changes:
+
+```bash
+docker build -f infra/split.dockerfile --target ui -t llmgateway-ui:fix .
+docker save llmgateway-ui:fix | sudo ctr -n k8s.io images import -
+# then add to helm upgrade: --set ui.image.registry=docker.io --set ui.image.repository=library/llmgateway-ui --set ui.image.tag=fix --set ui.image.pullPolicy=Never
+```
+
+Seed credentials: `admin@example.com` / `Admin1234!`
+
+Schema migrations: the deployed API image was built before new migrations were added. Apply missing ones via port-forward:
+
+```bash
+kubectl port-forward -n llmgateway svc/llmgateway-postgresql 15432:5432 &
+DATABASE_URL="postgres://postgres:<password>@localhost:15432/llmgateway" pnpm --filter db push
+DATABASE_URL="postgres://postgres:<password>@localhost:15432/llmgateway" pnpm --filter db seed
+```
+
+Known gotchas:
+- `COOKIE_DOMAIN` must equal the node IP. The old pre-built image has `cookieDomain = process.env.COOKIE_DOMAIN ?? "localhost"` — if unset, all session cookies get `Domain=localhost` and the browser silently drops them on login redirect.
+- No cloud LoadBalancer: `LoadBalancer` services stay `<pending>` forever on this cluster. NodePort is the only external access method.
+- UI pod memory limit is 768Mi (raised from 256Mi to prevent OOMKill from the 3MB+ `/internal/models` response).
+
 ## Folder Structure
 
 - `apps/ui`: Next.js frontend
