@@ -5990,6 +5990,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/organizations/{orgId}/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List audit logs for an organization */
+        get: operations["getAdminAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/keys/api": {
         parameters: {
             query?: never;
@@ -13219,6 +13236,54 @@ export interface operations {
                         }[];
                         hasMore: boolean;
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    getAdminAuditLogs: {
+        parameters: {
+            query?: {
+                limit?: string;
+                cursor?: string;
+                action?: string;
+                resourceType?: string;
+            };
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit logs for the organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        auditLogs: {
+                            id: string;
+                            createdAt: string;
+                            organizationId: string;
+                            userId: string;
+                            action: string;
+                            resourceType: string;
+                            resourceId: string | null;
+                            metadata?: unknown;
+                            user?: {
+                                id: string;
+                                email: string;
+                                name: string | null;
+                            };
+                        }[];
+                        pagination: {
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
                     };
                 };
             };

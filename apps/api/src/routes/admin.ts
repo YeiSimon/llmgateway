@@ -10149,4 +10149,106 @@ admin.openapi(getAdminViolationsRoute, async (c) => {
 	});
 });
 
+// ─── Audit Logs (admin view, no plan check) ──────────────────────────────────
+
+const getAdminAuditLogsRoute = createRoute({
+	summary: "List audit logs for an organization",
+	operationId: "getAdminAuditLogs",
+	method: "get",
+	path: "/organizations/{orgId}/audit-logs",
+	request: {
+		params: z.object({ orgId: z.string() }),
+		query: z.object({
+			limit: z
+				.string()
+				.optional()
+				.transform((v) => (v ? parseInt(v, 10) : 50))
+				.pipe(z.number().int().min(1).max(100)),
+			cursor: z.string().optional(),
+			action: z.string().optional(),
+			resourceType: z.string().optional(),
+		}),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						auditLogs: z.array(
+							z.object({
+								id: z.string(),
+								createdAt: z.string(),
+								organizationId: z.string(),
+								userId: z.string(),
+								action: z.string(),
+								resourceType: z.string(),
+								resourceId: z.string().nullable(),
+								metadata: z.any().nullable(),
+								user: z
+									.object({
+										id: z.string(),
+										email: z.string(),
+										name: z.string().nullable(),
+									})
+									.optional(),
+							}),
+						),
+						pagination: z.object({
+							nextCursor: z.string().nullable(),
+							hasMore: z.boolean(),
+							limit: z.number(),
+						}),
+					}),
+				},
+			},
+			description: "Audit logs for the organization",
+		},
+	},
+});
+
+admin.openapi(getAdminAuditLogsRoute, async (c) => {
+	const { orgId } = c.req.param();
+	const { limit, cursor, action, resourceType } = c.req.valid("query");
+
+	const rows = await db.query.auditLog.findMany({
+		where: {
+			organizationId: { eq: orgId },
+			...(cursor ? { id: { lt: cursor } } : {}),
+			...(action ? { action: { eq: action as never } } : {}),
+			...(resourceType ? { resourceType: { eq: resourceType as never } } : {}),
+		},
+		limit: limit + 1,
+		orderBy: (t, { desc: d }) => [d(t.createdAt)],
+		with: {
+			user: {
+				columns: { id: true, email: true, name: true },
+			},
+		},
+	});
+
+	const hasMore = rows.length > limit;
+	const logs = hasMore ? rows.slice(0, limit) : rows;
+
+	return c.json({
+		auditLogs: logs.map((log) => ({
+			id: log.id,
+			createdAt: log.createdAt.toISOString(),
+			organizationId: log.organizationId,
+			userId: log.userId,
+			action: log.action,
+			resourceType: log.resourceType,
+			resourceId: log.resourceId ?? null,
+			metadata: log.metadata ?? null,
+			user: log.user
+				? { id: log.user.id, email: log.user.email, name: log.user.name }
+				: undefined,
+		})),
+		pagination: {
+			nextCursor: hasMore ? logs[logs.length - 1].id : null,
+			hasMore,
+			limit,
+		},
+	});
+});
+
 export default admin;

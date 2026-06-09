@@ -158,13 +158,6 @@ auditLogs.openapi(getAuditLogs, async (c) => {
 		});
 	}
 
-	// Check if organization has enterprise plan
-	if (userOrg.organization?.plan !== "enterprise") {
-		throw new HTTPException(403, {
-			message: "Audit logs require an enterprise plan",
-		});
-	}
-
 	// Build where conditions
 	const whereConditions = [eq(tables.auditLog.organizationId, organizationId)];
 
@@ -348,13 +341,6 @@ auditLogs.openapi(getFilterOptions, async (c) => {
 	if (userOrg.role !== "owner" && userOrg.role !== "admin") {
 		throw new HTTPException(403, {
 			message: "Only owners and admins can view audit logs",
-		});
-	}
-
-	// Check if organization has enterprise plan
-	if (userOrg.organization?.plan !== "enterprise") {
-		throw new HTTPException(403, {
-			message: "Audit logs require an enterprise plan",
 		});
 	}
 

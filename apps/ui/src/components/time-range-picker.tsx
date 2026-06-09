@@ -1,15 +1,5 @@
 "use client";
 
-import { Lock } from "lucide-react";
-
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/lib/components/tooltip";
-import { useAppConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
 const FREE_RANGES = [
@@ -37,77 +27,28 @@ export function TimeRangePicker({
 	onChange,
 	allowedValues,
 }: TimeRangePickerProps) {
-	const config = useAppConfig();
-	const { selectedOrganization } = useDashboardNavigation();
-	const isEnterprise = selectedOrganization?.plan === "enterprise";
-	const isGated = config.hosted && !isEnterprise;
-
-	const freeRanges = allowedValues
-		? FREE_RANGES.filter((r) => allowedValues.includes(r.value))
-		: FREE_RANGES;
-	const proRanges = allowedValues
-		? PRO_RANGES.filter((r) => allowedValues.includes(r.value))
-		: PRO_RANGES;
+	const allRanges = [...FREE_RANGES, ...PRO_RANGES];
+	const visibleRanges = allowedValues
+		? allRanges.filter((r) => allowedValues.includes(r.value))
+		: allRanges;
 
 	return (
-		<TooltipProvider>
-			<div className="inline-flex items-center rounded-md border bg-muted p-0.5">
-				{freeRanges.map((range) => (
-					<button
-						key={range.value}
-						type="button"
-						onClick={() => onChange(range.value)}
-						className={cn(
-							"px-3 py-1 text-sm font-medium rounded-sm transition-colors",
-							value === range.value
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						{range.label}
-					</button>
-				))}
-				{proRanges.map((range) =>
-					isGated ? (
-						<Tooltip key={range.value}>
-							<TooltipTrigger asChild>
-								<button
-									type="button"
-									disabled
-									aria-disabled="true"
-									className="px-3 py-1 text-sm font-medium rounded-sm text-muted-foreground/40 cursor-not-allowed inline-flex items-center gap-1"
-								>
-									{range.label}
-									<Lock className="h-3 w-3" />
-								</button>
-							</TooltipTrigger>
-							<TooltipContent
-								side="bottom"
-								className="max-w-[200px] text-center"
-							>
-								<p className="text-xs font-medium">Extended analytics</p>
-								<p className="text-xs text-muted-foreground">
-									Available on Enterprise or self-hosted
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					) : (
-						<button
-							key={range.value}
-							type="button"
-							onClick={() => onChange(range.value)}
-							className={cn(
-								"px-3 py-1 text-sm font-medium rounded-sm transition-colors",
-								value === range.value
-									? "bg-background text-foreground shadow-sm"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							{range.label}
-						</button>
-					),
-				)}
-			</div>
-		</TooltipProvider>
+		<div className="inline-flex items-center rounded-md border bg-muted p-0.5">
+			{visibleRanges.map((range) => (
+				<button
+					key={range.value}
+					type="button"
+					onClick={() => onChange(range.value)}
+					className={cn(
+						"px-3 py-1 text-sm font-medium rounded-sm transition-colors",
+						value === range.value
+							? "bg-background text-foreground shadow-sm"
+							: "text-muted-foreground hover:text-foreground",
+					)}
+				>
+					{range.label}
+				</button>
+			))}
+		</div>
 	);
 }

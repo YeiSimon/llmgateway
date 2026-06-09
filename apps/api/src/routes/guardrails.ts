@@ -27,8 +27,8 @@ import type {
 
 export const guardrails = new OpenAPIHono<ServerTypes>();
 
-// Helper to check enterprise access
-async function checkEnterpriseAccess(
+// Helper to check org admin access
+async function checkOrgAdminAccess(
 	userId: string,
 	organizationId: string,
 ): Promise<{
@@ -53,12 +53,6 @@ async function checkEnterpriseAccess(
 	if (userOrg.role !== "owner" && userOrg.role !== "admin") {
 		throw new HTTPException(403, {
 			message: "Only owners and admins can manage guardrails",
-		});
-	}
-
-	if (userOrg.organization?.plan !== "enterprise") {
-		throw new HTTPException(403, {
-			message: "Guardrails require an enterprise plan",
 		});
 	}
 
@@ -173,7 +167,7 @@ guardrails.openapi(getConfig, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const config = await db.query.guardrailConfig.findFirst({
 		where: { organizationId: { eq: organizationId } },
@@ -223,7 +217,7 @@ guardrails.openapi(updateConfig, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const body = c.req.valid("json");
 
@@ -294,7 +288,7 @@ guardrails.openapi(resetConfig, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	// Delete existing and create new with defaults
 	await db
@@ -346,7 +340,7 @@ guardrails.openapi(listRules, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const rules = await db.query.guardrailRule.findMany({
 		where: { organizationId: { eq: organizationId } },
@@ -398,7 +392,7 @@ guardrails.openapi(createRule, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const body = c.req.valid("json");
 
@@ -460,7 +454,7 @@ guardrails.openapi(updateRule, async (c) => {
 	}
 
 	const { organizationId, ruleId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const body = c.req.valid("json");
 
@@ -519,7 +513,7 @@ guardrails.openapi(deleteRule, async (c) => {
 	}
 
 	const { organizationId, ruleId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	await db
 		.delete(tables.guardrailRule)
@@ -580,7 +574,7 @@ guardrails.openapi(listViolations, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const query = c.req.valid("query");
 	const {
@@ -700,7 +694,7 @@ guardrails.openapi(getStats, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const { days } = c.req.valid("query");
 	const startDate = new Date();
@@ -785,7 +779,7 @@ guardrails.openapi(testContent, async (c) => {
 	}
 
 	const { organizationId } = c.req.param();
-	await checkEnterpriseAccess(user.id, organizationId);
+	await checkOrgAdminAccess(user.id, organizationId);
 
 	const { content } = c.req.valid("json");
 

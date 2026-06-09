@@ -3,10 +3,8 @@
 import { ExternalLink, Orbit } from "lucide-react";
 import { useParams } from "next/navigation";
 
-import { MasterKeysContactSalesCard } from "@/components/master-keys/contact-sales-card";
 import { CreateMasterKeyDialog } from "@/components/master-keys/create-master-key-dialog";
 import { MasterKeysList } from "@/components/master-keys/master-keys-list";
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import { Button } from "@/lib/components/button";
 import { Card, CardContent, CardHeader } from "@/lib/components/card";
 import { useApi } from "@/lib/fetch-client";
@@ -14,25 +12,18 @@ import { useApi } from "@/lib/fetch-client";
 export function MasterKeysClient() {
 	const params = useParams();
 	const organizationId = params.orgId as string;
-	const { selectedOrganization } = useDashboardNavigation();
 	const api = useApi();
-
-	const isEnterprise = selectedOrganization?.plan === "enterprise";
 
 	const { data } = api.useQuery(
 		"get",
 		"/master-keys",
 		{ params: { query: { organizationId } } },
 		{
-			enabled: !!organizationId && isEnterprise,
+			enabled: !!organizationId,
 			staleTime: 5 * 60 * 1000,
 			refetchOnWindowFocus: false,
 		},
 	);
-
-	if (selectedOrganization && !isEnterprise) {
-		return <MasterKeysContactSalesCard />;
-	}
 
 	const planLimits = data?.planLimits;
 	const limitReached =

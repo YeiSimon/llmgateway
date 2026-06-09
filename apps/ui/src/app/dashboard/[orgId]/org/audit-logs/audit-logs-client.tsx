@@ -6,7 +6,6 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import { useTeamMembers } from "@/hooks/useTeam";
 import { useUser } from "@/hooks/useUser";
 import { Badge } from "@/lib/components/badge";
@@ -26,8 +25,6 @@ import {
 	SelectValue,
 } from "@/lib/components/select";
 import { useFetchClient } from "@/lib/fetch-client";
-
-import { ContactSalesCard } from "./contact-sales-card";
 
 interface AuditLog {
 	id: string;
@@ -95,7 +92,6 @@ export function AuditLogsClient() {
 	const organizationId = params.orgId as string;
 	const fetchClient = useFetchClient();
 	const isMobile = useIsMobile();
-	const { selectedOrganization } = useDashboardNavigation();
 	const { user } = useUser();
 	const { data: teamData, isLoading: isLoadingTeam } =
 		useTeamMembers(organizationId);
@@ -146,10 +142,8 @@ export function AuditLogsClient() {
 		[router],
 	);
 
-	// Check if user can view audit logs (enterprise plan + owner/admin)
 	const canViewAuditLogs =
-		selectedOrganization?.plan === "enterprise" &&
-		(currentUserRole === "owner" || currentUserRole === "admin");
+		currentUserRole === "owner" || currentUserRole === "admin";
 
 	// Fetch filter options
 	const fetchFilterOptions = useCallback(async () => {
@@ -241,11 +235,6 @@ export function AuditLogsClient() {
 			setIsLoading(false);
 		}
 	}, [canViewAuditLogs, fetchAuditLogs]);
-
-	// If not enterprise plan, show contact sales
-	if (selectedOrganization?.plan !== "enterprise") {
-		return <ContactSalesCard />;
-	}
 
 	// Show loading while determining user role
 	if (isLoadingTeam || !currentUserRole) {

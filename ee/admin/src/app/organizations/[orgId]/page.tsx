@@ -276,6 +276,9 @@ export default async function OrganizationPage({
 							Security Events
 						</Link>
 					</Button>
+					<Button variant="outline" size="sm" asChild>
+						<Link href={`/organizations/${orgId}/audit-logs`}>Audit Logs</Link>
+					</Button>
 					<BlockOrgButton
 						orgId={orgId}
 						orgName={org.name}

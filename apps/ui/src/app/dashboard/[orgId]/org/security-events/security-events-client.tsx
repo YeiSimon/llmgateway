@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import { useTeamMembers } from "@/hooks/useTeam";
 import { useUser } from "@/hooks/useUser";
 import { Badge } from "@/lib/components/badge";
@@ -26,8 +25,6 @@ import {
 	SelectValue,
 } from "@/lib/components/select";
 import { useFetchClient } from "@/lib/fetch-client";
-
-import { ContactSalesCard } from "./contact-sales-card";
 
 interface Violation {
 	id: string;
@@ -91,7 +88,6 @@ export function SecurityEventsClient() {
 	const organizationId = params.orgId as string;
 	const fetchClient = useFetchClient();
 	const isMobile = useIsMobile();
-	const { selectedOrganization } = useDashboardNavigation();
 	const { user } = useUser();
 	const { data: teamData, isLoading: isLoadingTeam } =
 		useTeamMembers(organizationId);
@@ -113,8 +109,7 @@ export function SecurityEventsClient() {
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
 	const canViewEvents =
-		selectedOrganization?.plan === "enterprise" &&
-		(currentUserRole === "owner" || currentUserRole === "admin");
+		currentUserRole === "owner" || currentUserRole === "admin";
 
 	const fetchStats = useCallback(async () => {
 		try {
@@ -207,10 +202,6 @@ export function SecurityEventsClient() {
 		actionFilter,
 		categoryFilter,
 	]);
-
-	if (selectedOrganization?.plan !== "enterprise") {
-		return <ContactSalesCard />;
-	}
 
 	if (isLoadingTeam || !currentUserRole) {
 		return (

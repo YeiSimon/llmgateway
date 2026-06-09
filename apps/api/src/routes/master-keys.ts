@@ -17,7 +17,7 @@ export const masterKeys = new OpenAPIHono<ServerTypes>();
 
 export const MAX_MASTER_KEYS_PER_ORG = 10;
 
-async function assertEnterpriseOrgAccess(
+async function assertOrgAdminAccess(
 	userId: string,
 	organizationId: string,
 ): Promise<{ role: "owner" | "admin" }> {
@@ -38,12 +38,6 @@ async function assertEnterpriseOrgAccess(
 	if (userOrg.role !== "owner" && userOrg.role !== "admin") {
 		throw new HTTPException(403, {
 			message: "Only owners and admins can manage master keys",
-		});
-	}
-
-	if (userOrg.organization?.plan !== "enterprise") {
-		throw new HTTPException(403, {
-			message: "Master keys require an enterprise plan",
 		});
 	}
 
@@ -124,7 +118,7 @@ masterKeys.openapi(create, async (c) => {
 
 	const { description, organizationId } = c.req.valid("json");
 
-	await assertEnterpriseOrgAccess(user.id, organizationId);
+	await assertOrgAdminAccess(user.id, organizationId);
 
 	const existingKeys = await db.query.masterKey.findMany({
 		where: {
@@ -217,7 +211,7 @@ masterKeys.openapi(list, async (c) => {
 
 	const { organizationId } = c.req.valid("query");
 
-	await assertEnterpriseOrgAccess(user.id, organizationId);
+	await assertOrgAdminAccess(user.id, organizationId);
 
 	const rows = await db.query.masterKey.findMany({
 		where: {
@@ -288,7 +282,7 @@ masterKeys.openapi(updateStatus, async (c) => {
 		throw new HTTPException(404, { message: "Master key not found" });
 	}
 
-	await assertEnterpriseOrgAccess(user.id, existing.organizationId);
+	await assertOrgAdminAccess(user.id, existing.organizationId);
 
 	const [updated] = await db
 		.update(tables.masterKey)
@@ -359,7 +353,7 @@ masterKeys.openapi(remove, async (c) => {
 		throw new HTTPException(404, { message: "Master key not found" });
 	}
 
-	await assertEnterpriseOrgAccess(user.id, existing.organizationId);
+	await assertOrgAdminAccess(user.id, existing.organizationId);
 
 	await db
 		.update(tables.masterKey)

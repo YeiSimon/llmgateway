@@ -67,12 +67,6 @@ v1Master.use("*", async (c, next) => {
 		throw new HTTPException(403, { message: "Organization is not active" });
 	}
 
-	if (row.organization?.plan !== "enterprise") {
-		throw new HTTPException(403, {
-			message: "Master keys require an enterprise plan",
-		});
-	}
-
 	c.set("masterKey", {
 		id: row.id,
 		organizationId: row.organizationId,

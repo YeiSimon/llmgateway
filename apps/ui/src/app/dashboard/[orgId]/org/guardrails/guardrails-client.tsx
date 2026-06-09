@@ -4,7 +4,6 @@ import { Plus, Trash2, Save, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 
-import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
 import { useTeamMembers } from "@/hooks/useTeam";
 import { useUser } from "@/hooks/useUser";
 import { Badge } from "@/lib/components/badge";
@@ -27,8 +26,6 @@ import {
 } from "@/lib/components/select";
 import { Switch } from "@/lib/components/switch";
 import { useFetchClient } from "@/lib/fetch-client";
-
-import { ContactSalesCard } from "./contact-sales-card";
 
 interface SystemRuleConfig {
 	enabled: boolean;
@@ -118,7 +115,6 @@ export function GuardrailsClient() {
 	const params = useParams();
 	const organizationId = params.orgId as string;
 	const fetchClient = useFetchClient();
-	const { selectedOrganization } = useDashboardNavigation();
 	const { user } = useUser();
 	const { data: teamData, isLoading: isLoadingTeam } =
 		useTeamMembers(organizationId);
@@ -149,8 +145,7 @@ export function GuardrailsClient() {
 	});
 
 	const canManageGuardrails =
-		selectedOrganization?.plan === "enterprise" &&
-		(currentUserRole === "owner" || currentUserRole === "admin");
+		currentUserRole === "owner" || currentUserRole === "admin";
 
 	const fetchConfig = useCallback(async () => {
 		try {
@@ -340,10 +335,6 @@ export function GuardrailsClient() {
 			setError("Failed to update rule");
 		}
 	};
-
-	if (selectedOrganization?.plan !== "enterprise") {
-		return <ContactSalesCard />;
-	}
 
 	if (isLoadingTeam || !currentUserRole) {
 		return (
