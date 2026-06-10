@@ -67,9 +67,51 @@ E2E tests are organized for optimal performance:
 
 NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
-- `pnpm --filter db push` - Push database schema
 - `pnpm --filter db seed` - Seed database with initial data
-- `pnpm run setup` – Reset db, sync schema, seed data (use this for development)
+- `pnpm run setup` – Fresh dev environment only: drops and recreates the local DB, pushes schema, seeds data. **Never run against any shared or production database.**
+
+#### ⚠️ Migration Workflow — Read Before Changing the Schema
+
+The migration system has two distinct tracking mechanisms that must stay in sync:
+
+| Thing | Location | Purpose |
+|---|---|---|
+| Migration SQL files | `packages/db/migrations/*.sql` | The actual SQL to apply |
+| `_journal.json` | `packages/db/migrations/meta/` | Index of migration files (disk only) |
+| `drizzle.__drizzle_migrations` | Production PostgreSQL | Records which migrations have been applied |
+
+**Correct workflow for any schema change:**
+
+1. Edit `packages/db/src/schema.ts`
+2. Generate a migration: `pnpm --filter db migrations` — creates a new `.sql` file and updates `_journal.json`
+3. Commit **both** the `.sql` file and the updated `_journal.json` in the same commit as the schema change
+4. On next `helm upgrade`, the pre-upgrade Job (`infra/helm/llmgateway/templates/migration-job.yaml`) runs automatically and applies the migration before new pods start
+
+**NEVER use `pnpm --filter db push` (or `pnpm run setup`) on production or any shared database.**
+`push` directly alters the database schema without creating migration files or recording anything in `drizzle.__drizzle_migrations`. If a new API image is then deployed, its migration runner tries to create already-existing tables and the API pod crash-loops on startup.
+
+**How production migrations work:**
+
+The Helm chart's pre-upgrade Job (`infra/helm/llmgateway/templates/migration-job.yaml`):
+- Runs `node dist/migrate-only.js` inside the same API image **before** pods are replaced
+- Reads `drizzle.__drizzle_migrations` and skips already-applied migrations
+- If it fails, Helm aborts the release — the currently running pods are untouched (zero downtime)
+- API pods start with `RUN_MIGRATIONS=false`; the job is the sole migration authority
+
+**Emergency: journal out of sync on production**
+
+If `drizzle.__drizzle_migrations` is missing entries because schema was applied via `push`, use the recovery script before deploying a new image:
+
+```bash
+# Port-forward production postgres
+kubectl port-forward -n llmgateway svc/llmgateway-postgresql 15433:5432
+
+# Seed any missing migration records (safe to run multiple times — uses ON CONFLICT DO NOTHING)
+DATABASE_URL="postgres://postgres:<password>@localhost:15433/llmgateway" \
+  pnpm tsx vitest/seed-migrations.ts
+```
+
+`vitest/seed-migrations.ts` computes the SHA-256 hash of each migration file (matching what drizzle stores) and inserts any entries absent from `drizzle.__drizzle_migrations`.
 
 ## Architecture Overview
 
@@ -124,9 +166,10 @@ NOTE: these commands can only be run in the root directory of the repository, no
 - Use Drizzle ORM with latest object syntax
 - The schema uses camelCase in TypeScript but the actual database columns are snake_case (configured via Drizzle's `casing: "snake_case"`). When writing raw SQL, always use snake_case column names (e.g. `user_id`, not `userId`).
 - For reads: Use `db().query.<table>.findMany()` or `db().query.<table>.findFirst()`
-- For schema changes: Use `pnpm run setup` instead of writing migrations which will generate .sql files
-- Always sync schema with `pnpm run setup` after table/column changes
-- Never write migrations manually, only edit generated migration files if specifically asked
+- For schema changes: edit `packages/db/src/schema.ts`, then run `pnpm --filter db migrations` to generate the migration file. Commit both the `.sql` file and the updated `_journal.json`. See the Migration Workflow section above for the full procedure.
+- **NEVER use `pnpm --filter db push` or `pnpm run setup` on production or any shared database** — these bypass the migration runner and corrupt `drizzle.__drizzle_migrations`, causing crash-loops on the next deploy.
+- `pnpm run setup` is only for wiping and recreating a local dev database from scratch.
+- Never write migration SQL manually; only edit generated files if specifically asked.
 - **NEVER resolve merge conflicts in migration files, journal files, or snapshot files manually.** When merging with main and migration conflicts occur, ALWAYS follow this exact procedure:
   1. **Before merging**, reset migrations: `git restore --source=origin/main packages/db/migrations/`
   2. **After merging**, regenerate migrations: `pnpm migrations`

@@ -79,8 +79,10 @@ database:
 api:
   enabled: true
   replicas: 1
-  # -- Run database migrations on startup
-  runMigrations: true
+  # -- Run database migrations on API startup (legacy fallback).
+  # Migrations are now handled by the pre-upgrade Helm Job (migration-job.yaml).
+  # Keep false in production; set true only when deploying without Helm.
+  runMigrations: false
   image:
     registry: ""
     repository: theopenco/llmgateway-api

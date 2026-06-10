@@ -1,0 +1,45 @@
+{{- if .Values.api.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "llmgateway.fullname" . }}-migrate
+  labels:
+    {{- include "llmgateway.componentLabels" (dict "context" . "component" "migrate") | nindent 4 }}
+  annotations:
+    # Run before every install and upgrade; delete the old job first so names don't collide.
+    # If the job fails, Helm aborts the release — the running pods are untouched.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "llmgateway.componentSelectorLabels" (dict "context" . "component" "migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- include "llmgateway.imagePullSecrets" . | nindent 6 }}
+      initContainers:
+        - name: wait-for-postgresql
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "llmgateway.postgresql.host" . }} {{ include "llmgateway.postgresql.port" . }}; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+      containers:
+        - name: migrate
+          image: {{ include "llmgateway.image" (dict "context" . "image" .Values.api.image) }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy | default "IfNotPresent" }}
+          command: ["node", "--enable-source-maps", "dist/migrate-only.js"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "llmgateway.configMapName" . }}
+            - secretRef:
+                name: {{ include "llmgateway.secretName" . }}
+{{- end }}
