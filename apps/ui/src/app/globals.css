@@ -43,14 +43,14 @@
 	--chart-5: oklch(0.65 0.09 150);
 	--surface-elevated: oklch(0.99 0.006 70);
 	--radius: 1rem;
-	/* sidebar: dark panel (Vercel-style) against warm content */
-	--sidebar: oklch(0.13 0.005 285);
+	/* sidebar: dark charcoal panel — visibly dark but not black */
+	--sidebar: oklch(0.22 0.006 265);
 	--sidebar-foreground: oklch(0.92 0.005 285);
 	--sidebar-primary: oklch(0.65 0.11 38);
 	--sidebar-primary-foreground: oklch(0.99 0 0);
-	--sidebar-accent: oklch(0.22 0.005 285);
-	--sidebar-accent-foreground: oklch(0.92 0.005 285);
-	--sidebar-border: oklch(0.22 0.005 285);
+	--sidebar-accent: oklch(0.3 0.006 265);
+	--sidebar-accent-foreground: oklch(0.95 0.005 285);
+	--sidebar-border: oklch(0.28 0.006 265);
 	--sidebar-ring: oklch(0.65 0.11 38);
 }
 
@@ -81,14 +81,13 @@
 	--chart-4: oklch(0.78 0.17 72);
 	--chart-5: oklch(0.7 0.1 150);
 	--surface-elevated: oklch(0.215 0.02 48);
-	/* dark sidebar stays consistently dark in dark mode too */
-	--sidebar: oklch(0.1 0.005 285);
+	--sidebar: oklch(0.16 0.006 265);
 	--sidebar-foreground: oklch(0.92 0.005 285);
 	--sidebar-primary: oklch(0.65 0.11 38);
 	--sidebar-primary-foreground: oklch(0.99 0 0);
-	--sidebar-accent: oklch(0.2 0.005 285);
-	--sidebar-accent-foreground: oklch(0.92 0.005 285);
-	--sidebar-border: oklch(0.2 0.005 285);
+	--sidebar-accent: oklch(0.24 0.006 265);
+	--sidebar-accent-foreground: oklch(0.95 0.005 285);
+	--sidebar-border: oklch(0.22 0.006 265);
 	--sidebar-ring: oklch(0.65 0.11 38);
 }
 
