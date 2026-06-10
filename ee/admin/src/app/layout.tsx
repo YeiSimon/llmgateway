@@ -1,4 +1,4 @@
-import { Inter, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono, Source_Serif_4 } from "next/font/google";
 
 import { AdminShell } from "@/components/admin-shell";
 import { getConfig } from "@/lib/config-server";
@@ -18,6 +18,13 @@ const inter = Inter({
 const geistMono = Geist_Mono({
 	variable: "--font-mono",
 	subsets: ["latin"],
+});
+
+const sourceSerif = Source_Serif_4({
+	variable: "--font-source-serif",
+	subsets: ["latin"],
+	weight: ["400", "600", "700"],
+	display: "swap",
 });
 
 export const dynamic = "force-dynamic";
@@ -40,7 +47,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body className={`${inter.variable} ${geistMono.variable} antialiased`}>
+			<body
+				className={`${inter.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
+			>
 				<Providers config={config}>
 					<AdminShell>{children}</AdminShell>
 				</Providers>
