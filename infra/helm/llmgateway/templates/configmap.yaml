@@ -92,6 +92,9 @@ data:
 
   # API config
   RUN_MIGRATIONS: {{ include "llmgateway.envValue" .Values.api.runMigrations | quote }}
+  {{- if .Values.auth.adminEmails }}
+  ADMIN_EMAILS: {{ .Values.auth.adminEmails | quote }}
+  {{- end }}
   {{- with .Values.api.config }}
   {{- if .timeoutMs }}
   TIMEOUT_MS: {{ include "llmgateway.envValue" .timeoutMs | quote }}
