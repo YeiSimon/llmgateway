@@ -1,4 +1,4 @@
-import { Inter, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Geist_Mono, Source_Serif_4 } from "next/font/google";
 
 import { Providers } from "@/components/providers";
 import { getConfig } from "@/lib/config-server";
@@ -20,10 +20,10 @@ const geistMono = Geist_Mono({
 	display: "swap",
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
-	variable: "--font-display",
+const sourceSerif = Source_Serif_4({
+	variable: "--font-source-serif",
 	subsets: ["latin"],
-	weight: ["500", "600", "700", "800"],
+	weight: ["400", "600", "700"],
 	display: "swap",
 });
 
@@ -154,7 +154,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 				/>
 			</head>
 			<body
-				className={`${inter.variable} ${geistMono.variable} ${plusJakarta.variable} min-h-screen antialiased`}
+				className={`${inter.variable} ${geistMono.variable} ${sourceSerif.variable} min-h-screen antialiased`}
 			>
 				<Providers config={config}>{children}</Providers>
 			</body>
