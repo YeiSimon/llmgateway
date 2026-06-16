@@ -78,6 +78,211 @@ Regional inference routing should consider:
 
 llm-d is a good fit for the regional inference routing layer because it can optimize around prefix cache awareness, load awareness, and predicted latency scheduling. The product gateway should still own tenant policy, billing, data boundaries, and cross-region decisions.
 
+## Model Management and Runtime Versioning
+
+Each region needs a model management layer above the raw inference engines.
+
+```text
+Regional Model Gateway
+        │
+        v
+Model Management Layer
+        │
+        ├── model registry binding
+        ├── runtime engine selection
+        ├── image version selection
+        ├── blue/green deployment state
+        ├── traffic weights
+        └── rollback policy
+                │
+                v
+        llm-d / inference router
+                │
+        ┌───────┼────────┐
+        v       v        v
+      vLLM   SGLang   TensorRT-LLM
+```
+
+The model gateway should not treat a model as only a model id. It should route to a versioned deployment target.
+
+Recommended identity:
+
+```text
+logical_model_id:
+  llama-3.1-70b
+
+deployment_target:
+  region: tw
+  runtime_engine: vllm
+  model_version: llama-3.1-70b-instruct-2026-06-01
+  runtime_version: vllm-0.9.0
+  image_digest: sha256:...
+  deployment_color: blue
+  status: active
+```
+
+Use immutable image digests, not floating tags, for production routing.
+
+```text
+Good:
+harbor.example.com/inference/vllm@sha256:...
+
+Risky:
+harbor.example.com/inference/vllm:latest
+```
+
+Harbor should be the central image registry for runtime images and model-serving images.
+
+```text
+Harbor
+  ├── inference/vllm
+  ├── inference/sglang
+  ├── inference/tensorrt-llm
+  ├── model-gateway
+  └── sidecars/cache-adapter
+```
+
+Harbor should own:
+
+- Image signing and provenance
+- Vulnerability scanning
+- Immutable tags or digest-pinned releases
+- Promotion between environments
+- Region pull permissions
+- Runtime image lifecycle
+
+The control plane should own:
+
+- Which image digest is allowed for each model deployment
+- Which regions can run a model
+- Which runtime engines are compatible with each model
+- Which deployment color receives traffic
+- Rollback target
+- Version deprecation policy
+
+## Blue/Green and Zero-Downtime Updates
+
+Model serving updates should use blue/green or canary deployments.
+
+```text
+Current state:
+logical_model_id = llama-3.1-70b
+active target    = blue
+
+┌──────────────────────┐
+│ blue deployment       │
+│ vLLM image sha A      │
+│ model version A       │
+│ traffic: 100%         │
+└──────────────────────┘
+
+┌──────────────────────┐
+│ green deployment      │
+│ vLLM image sha B      │
+│ model version B       │
+│ traffic: 0%           │
+└──────────────────────┘
+```
+
+Upgrade flow:
+
+```text
+1. Pull image from Harbor by digest.
+2. Start green deployment beside blue.
+3. Load model weights.
+4. Warm up runtime.
+5. Run health checks and smoke prompts.
+6. Send shadow traffic if needed.
+7. Shift traffic gradually.
+8. Stop sending new sessions to blue.
+9. Let existing blue sessions drain.
+10. Promote green to active.
+11. Keep blue available for rollback.
+```
+
+Traffic shifting can start simple:
+
+```text
+blue: 100%, green: 0%
+blue: 95%,  green: 5%
+blue: 80%,  green: 20%
+blue: 50%,  green: 50%
+blue: 0%,   green: 100%
+```
+
+For stateful chat sessions, traffic shifting must respect session affinity.
+
+```text
+New sessions:
+may route to green during rollout
+
+Existing sessions:
+stay on blue until they expire, finish, or are explicitly migrated
+```
+
+This matters because active KV cache is runtime-local. Do not move an active session from blue to green just because the weight changed.
+
+Recommended rollout rule:
+
+> Blue/green changes affect new sessions first. Existing sessions drain from their current deployment.
+
+## Runtime Compatibility
+
+Different inference engines should be treated as different deployment classes, not as interchangeable pods.
+
+```text
+Runtime engines:
+- vLLM
+- SGLang
+- TensorRT-LLM
+```
+
+Each model deployment should declare compatibility:
+
+```text
+model_runtime_compatibility:
+  model: llama-3.1-70b
+  supported_engines:
+    - vllm
+    - sglang
+  unsupported_engines:
+    - tensorrt-llm
+  required_gpu:
+    - h100
+    - h200
+  tensor_parallel_size: 4
+  max_context_length: 131072
+```
+
+The regional model gateway should reject or avoid incompatible targets before traffic reaches the runtime.
+
+Version changes that can break cache compatibility:
+
+- Model weights
+- Tokenizer
+- Runtime engine
+- Runtime version
+- Tensor parallel layout
+- Quantization format
+- KV cache format
+- Attention kernel
+
+Because of this, KV cache reuse must be scoped by deployment identity.
+
+```text
+cache_key_scope:
+  region
+  logical_model_id
+  model_version
+  runtime_engine
+  runtime_version
+  deployment_color
+  tokenizer_hash
+  cache_format_version
+```
+
+Never reuse KV cache across blue and green unless the compatibility contract explicitly says it is safe.
+
 ## KV Cache Decision
 
 For the first version, KV cache should be region-local.
@@ -306,6 +511,8 @@ The training dataset pipeline should include:
 - Deploy one model gateway per region.
 - Use Kubernetes services for vLLM/SGLang/TRT-LLM.
 - Use llm-d inside each region for inference routing.
+- Pull runtime and model-serving images from Harbor by immutable digest.
+- Track model deployment identity by region, runtime engine, model version, and image digest.
 - Keep KV cache local to the runtime and region.
 - Add session affinity in the global gateway.
 
@@ -315,12 +522,15 @@ The training dataset pipeline should include:
 - Track queue depth and TTFT per region.
 - Route new sessions to the best region.
 - Keep existing sessions sticky unless region health fails.
+- Add blue/green deployment state for each regional model target.
+- Route new sessions by deployment traffic weight while existing sessions drain.
 
 ### Phase 3: Regional Analytics
 
 - Store metadata in regional ClickHouse.
 - Sync summaries to the central control plane.
 - Keep full content storage opt-in and region-local.
+- Record deployment version, runtime engine, image digest, and traffic color in usage logs.
 
 ### Phase 4: Cache Adapter
 
