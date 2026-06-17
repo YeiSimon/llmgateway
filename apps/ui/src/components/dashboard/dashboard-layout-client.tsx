@@ -64,16 +64,16 @@ export function DashboardLayoutClient({
 				handleProjectCreated,
 			}}
 		>
-			<div className="flex min-h-screen w-full flex-col">
+			<div className="bg-background flex h-dvh w-full flex-col overflow-hidden">
 				<MobileHeader />
-				<div className="flex flex-1">
+				<div className="flex min-h-0 flex-1">
 					<DashboardSidebar
 						organizations={organizations}
 						onSelectOrganization={handleOrganizationSelect}
 						onOrganizationCreated={handleOrganizationCreated}
 						selectedOrganization={selectedOrganization}
 					/>
-					<div className="flex flex-1 flex-col justify-center">
+					<div className="flex min-h-0 flex-1 flex-col">
 						<TopBar
 							projects={projects}
 							selectedProject={selectedProject}
@@ -83,7 +83,7 @@ export function DashboardLayoutClient({
 							announcementEntries={announcementEntries}
 						/>
 						<EmailVerificationBanner />
-						<main className="bg-background w-full flex-1 overflow-y-auto pt-10 pb-4 px-4 md:p-6 lg:p-8">
+						<main className="bg-background min-h-0 w-full flex-1 overflow-y-auto overscroll-contain pt-10 pb-4 px-4 md:p-6 lg:p-8">
 							{children}
 						</main>
 					</div>
